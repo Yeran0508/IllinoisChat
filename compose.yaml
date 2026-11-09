@@ -19,8 +19,24 @@ services:
       OPENSEARCH_PORT: 9200
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      CHUNK_MAX_CHARACTERS: ${CHUNK_MAX_CHARACTERS:-1200}
+      CHUNK_OVERLAP_CHARACTERS: ${CHUNK_OVERLAP_CHARACTERS:-150}
+      DOCUMENT_STORAGE_PATH: /app/data/uploads
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-20971520}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+      EMBEDDING_CACHE_PATH: /app/data/models
+      HF_HOME: /app/data/models/huggingface
+      HF_HUB_DISABLE_XET: "1"
+      HNSW_EF_SEARCH: ${HNSW_EF_SEARCH:-64}
+      RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-5}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - document_uploads:/app/data/uploads
+      - model_cache:/app/data/models
     healthcheck:
       test:
         - CMD
@@ -31,6 +47,47 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+
+  migrate:
+    build:
+      context: .
+      target: base
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-illinoischat}
+      POSTGRES_USER: ${POSTGRES_USER:-illinoischat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  test:
+    build:
+      context: .
+      target: test
+    command:
+      - pytest
+      - -o
+      - cache_dir=/tmp/pytest_cache
+      - --cov=app
+      - --cov-report=term-missing
+      - --cov-fail-under=90
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-illinoischat}
+      POSTGRES_USER: ${POSTGRES_USER:-illinoischat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      DOCUMENT_STORAGE_PATH: /tmp/illinois-chat-test-uploads
+      EMBEDDING_CACHE_PATH: /tmp/illinois-chat-test-models
+      RUN_INTEGRATION_TESTS: "1"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["test"]
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -84,3 +141,5 @@ volumes:
   postgres_data:
   opensearch_data:
   redis_data:
+  document_uploads:
+  model_cache:

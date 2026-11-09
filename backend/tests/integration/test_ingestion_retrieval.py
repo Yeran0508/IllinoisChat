@@ -1,0 +1,141 @@
+import hashlib
+import math
+import os
+import re
+from collections.abc import Sequence
+
+import pytest
+from app.db.models import Chunk, Course, DocumentVersion
+from app.db.session import SessionLocal
+from app.ingestion.chunker import StructureAwareChunker
+from app.ingestion.service import DocumentIngestionService
+from app.ingestion.storage import LocalDocumentStorage
+from app.retrieval.service import VectorRetrievalService
+from sqlalchemy import delete, func, select
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        os.getenv("RUN_INTEGRATION_TESTS") != "1",
+        reason="requires migrated PostgreSQL",
+    ),
+]
+
+
+class DeterministicEmbeddingProvider:
+    model_name = "test-hash-embedding"
+    dimension = 384
+
+    def _embed(self, text: str) -> list[float]:
+        vector = [0.0] * self.dimension
+        for token in re.findall(r"[a-z0-9]+", text.lower()):
+            index = int.from_bytes(hashlib.sha256(token.encode()).digest()[:2]) % self.dimension
+            vector[index] += 1.0
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]
+
+    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+
+@pytest.fixture
+def db_session():
+    with SessionLocal() as session:
+        session.execute(delete(Course))
+        session.commit()
+        yield session
+        session.rollback()
+        session.execute(delete(Course))
+        session.commit()
+
+
+@pytest.fixture
+def ingestion_service(db_session, tmp_path):
+    return DocumentIngestionService(
+        session=db_session,
+        storage=LocalDocumentStorage(tmp_path),
+        embedder=DeterministicEmbeddingProvider(),
+        chunker=StructureAwareChunker(max_characters=200, overlap_characters=20),
+        max_upload_bytes=10_000,
+    )
+
+
+def test_register_ingest_reuse_search_and_delete(db_session, ingestion_service) -> None:
+    content = b"""# Vector Search
+
+Vector search retrieves semantically related course passages.
+
+## HNSW
+
+HNSW is an approximate nearest-neighbor graph index.
+"""
+    first = ingestion_service.register(
+        course_code="CS-TEST",
+        course_name="Test Course",
+        title="Retrieval Notes",
+        source_name="retrieval.md",
+        media_type="text/markdown",
+        content=content,
+    )
+    repeated = ingestion_service.register(
+        course_code="CS-TEST",
+        course_name="Test Course",
+        title="Retrieval Notes",
+        source_name="retrieval.md",
+        media_type="text/markdown",
+        content=content,
+    )
+
+    assert repeated.reused is True
+    assert repeated.version_id == first.version_id
+
+    version = ingestion_service.ingest(first.version_id)
+    assert version.status == "completed"
+    assert version.embedding_model == "test-hash-embedding"
+    assert (
+        db_session.scalar(
+            select(func.count()).select_from(Chunk).where(Chunk.document_version_id == version.id)
+        )
+        == 4
+    )
+
+    retrieval = VectorRetrievalService(
+        db_session,
+        DeterministicEmbeddingProvider(),
+        ef_search=64,
+    )
+    results = retrieval.search(course_code="CS-TEST", query="HNSW graph index", top_k=2)
+
+    assert results
+    assert results[0].document_id == first.document_id
+    assert "HNSW" in results[0].content
+    assert 0.0 <= results[0].score <= 1.0
+
+    storage_key = version.storage_key
+    ingestion_service.delete_document(first.document_id)
+    assert db_session.get(DocumentVersion, first.version_id) is None
+    with pytest.raises(FileNotFoundError):
+        ingestion_service.storage.read(storage_key)
+
+
+def test_ingestion_failure_is_persisted(ingestion_service, db_session) -> None:
+    registered = ingestion_service.register(
+        course_code="CS-TEST",
+        course_name="Test Course",
+        title="Broken Notes",
+        source_name="broken.md",
+        media_type="text/markdown",
+        content=b"```python\nprint('missing closing fence')",
+    )
+
+    with pytest.raises(ValueError, match="unclosed fenced code block"):
+        ingestion_service.ingest(registered.version_id)
+
+    db_session.expire_all()
+    version = db_session.get(DocumentVersion, registered.version_id)
+    assert version is not None
+    assert version.status == "failed"
+    assert "unclosed fenced code block" in (version.error_message or "")

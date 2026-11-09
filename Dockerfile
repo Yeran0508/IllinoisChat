@@ -4,12 +4,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     RUFF_CACHE_DIR=/tmp/ruff_cache \
-    COVERAGE_FILE=/tmp/.coverage
+    COVERAGE_FILE=/tmp/.coverage \
+    HOME=/tmp/app-home \
+    XDG_CACHE_HOME=/tmp/app-cache
 
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 RUN python -m pip install --no-cache-dir .
 

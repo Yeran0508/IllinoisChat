@@ -11,6 +11,26 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_DB: illinoischat
+      POSTGRES_USER: illinoischat
+      POSTGRES_PASSWORD: test-password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: illinoischat
+          POSTGRES_USER: illinoischat
+          POSTGRES_PASSWORD: test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U illinoischat -d illinoischat"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -25,8 +45,20 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Apply database migrations
+        run: alembic upgrade head
+
       - name: Test
+        env:
+          RUN_INTEGRATION_TESTS: "1"
+          DOCUMENT_STORAGE_PATH: /tmp/illinois-chat-test-uploads
+          EMBEDDING_CACHE_PATH: /tmp/illinois-chat-test-models
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=90
+
+      - name: Verify migration round trip
+        run: |
+          alembic downgrade base
+          alembic upgrade head
 
       - name: Validate Docker Compose
         run: docker compose config --quiet

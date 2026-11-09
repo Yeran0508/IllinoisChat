@@ -21,7 +21,11 @@ htmlcov/
 # Runtime data
 data/private/
 data/uploads/
+data/models/
 logs/
+
+# Local experiment outputs
+docs/experiments/results/
 
 # Local learning notes
 IllinoisChat学习笔记.txt

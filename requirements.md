@@ -101,6 +101,8 @@ The following requirements are mandatory for V1 and are implemented after the ba
 - Fuse result lists with a documented algorithm such as reciprocal rank fusion.
 - Rerank candidates with a configurable cross-encoder.
 - Compare vector-only, hybrid, and reranked pipelines using Recall@5 and nDCG@10.
+- Compare pgvector HNSW retrieval with `ef_search` set to `16`, `64`, and `256` while holding the corpus, query set, embedding model, index, top-k, hardware, and measurement procedure constant.
+- Record retrieval quality together with P50 and P95 query latency for every HNSW configuration.
 
 ### FR-8 Homework protection (M3)
 
@@ -135,6 +137,16 @@ The following requirements are mandatory for V1 and are implemented after the ba
 - Retrieval and answer changes shall be evaluated against a versioned dataset before merge.
 - The CI quality gate shall eventually cover retrieval, citation, refusal, and leakage metrics.
 - Metric targets will be set only after a reproducible baseline is recorded; improvement percentages will not be hard-coded in advance.
+- The first evaluation set shall contain 30-50 manually labeled questions spanning answerable, unanswerable, cross-section, code/formula, and protected-assignment cases.
+- Any expansion toward 500 questions shall use questions that were actually collected or deliberately authored, anonymized where necessary, labeled, and reviewed. Dataset size shall never be inferred or claimed from a target alone.
+
+### Experiment reproducibility
+
+- Every benchmark or optimization claim shall have a report committed under `docs/experiments/`.
+- Each report shall include the Git commit, dataset version and size, corpus version, model names and revisions, index and retrieval parameters, hardware/software environment, warm-up and repetition procedure, baseline, raw or machine-readable results, aggregated metrics, limitations, and conclusion.
+- Comparisons shall change one intended variable at a time or explicitly document all confounding changes.
+- Machine-readable result artifacts shall be retained when they contain no private or copyrighted data.
+- README and resume performance claims shall link back to a reproducible report.
 
 ### Performance
 
@@ -163,7 +175,7 @@ The exact schemas will be finalized during M0.
 
 | Method | Path | Purpose | Milestone |
 |---|---|---|---|
-| `GET` | `/health` | Service and dependency health | M0 |
+| `GET` | `/api/v1/health` | API liveness; confirms the process and HTTP routing are available | M0 |
 | `POST` | `/api/v1/documents` | Upload/register a course document | M1 |
 | `POST` | `/api/v1/documents/{id}/ingest` | Process and index a document | M1 |
 | `GET` | `/api/v1/documents/{id}` | Read ingestion status and metadata | M1 |
@@ -186,10 +198,13 @@ V1 is complete only when:
 8. Semantic caching is version-aware, invalidates after corpus changes, and exposes hit-rate and latency metrics.
 9. Automated tests exercise the complete ingestion-to-answer path.
 10. A versioned evaluation set measures Recall@5, nDCG@10, citation quality, refusal quality, and assignment leakage.
-11. Retrieval, citation, refusal, and leakage regression checks run in CI.
-12. An interview demo script and architecture explanation reproduce the principal workflows and trade-offs.
-13. No secret or private course material is committed to Git.
-14. CI passes on the default branch.
+11. The initial 30-50 question evaluation set is manually labeled and reviewed.
+12. HNSW `ef_search = 16`, `64`, and `256` results are recorded with recall and P50/P95 latency under controlled conditions.
+13. Retrieval, citation, refusal, and leakage regression checks run in CI.
+14. Every reported improvement has a reproducible experiment report containing its baseline, parameters, data, environment, and results.
+15. An interview demo script and architecture explanation reproduce the principal workflows and trade-offs.
+16. No secret or private course material is committed to Git.
+17. CI passes on the default branch.
 
 ## 8. Explicitly out of scope for V1
 

@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0 foundation completed and locally verified**. M1 ingestion and vector-retrieval work has not started.
+Current checkpoint: **M0, M1-A, and M1-B ingestion/vector retrieval completed and locally verified**. Grounded answer generation, sentence-level citations, and evidence-based refusal remain pending M1 work.
 
 ## Problem
 
@@ -46,6 +46,31 @@ Authentication beyond a minimal administrator boundary, multi-course tenancy, na
 
 All milestones M0-M5 are required for the V1 release. Milestones are implementation checkpoints, not deferred product versions.
 
+### Current M1 implementation
+
+- SQLAlchemy models and Alembic migration for courses, logical documents, content-addressed document versions, and chunks.
+- A 384-dimensional pgvector column with an HNSW cosine-distance index, ready for the M1 embedding baseline.
+- PDF, UTF-8 Markdown, and plain-text parsing into a shared block representation.
+- Markdown heading hierarchy and fenced code-block preservation.
+- Configurable structure-aware chunking with source page/section metadata, stable indexes, overlap, and SHA-256 content hashes.
+- Migration upgrade/downgrade checks in CI and local Docker Compose startup.
+- Multipart document registration with bounded uploads, persistent source storage, content-hash version reuse, and `pending/processing/completed/failed` state tracking.
+- FastEmbed integration for `BAAI/bge-small-en-v1.5`; real local inference is verified to produce normalized 384-dimensional document and query vectors.
+- Transactional Chunk and Embedding persistence, with failed ingestion recorded on the document version.
+- Configurable pgvector cosine retrieval with `hnsw.ef_search`, course filtering, source metadata, and similarity scores.
+- Document registration, status, ingestion, deletion, and vector-search API contracts.
+
+M1 still does **not** generate natural-language answers. Grounded generation, sentence-level citation validation, and insufficient-evidence refusal remain pending before M1 is complete.
+
+## Evaluation evidence policy
+
+V1 results must come from reproducible experiments rather than assumed improvements:
+
+- Start with a manually labeled evaluation set of 30-50 questions, covering answerable, unanswerable, cross-section, code/formula, and protected-assignment cases. Expand it only with collected, anonymized, labeled, and reviewed examples.
+- Run a controlled HNSW experiment with `ef_search = 16`, `64`, and `256`. Keep the corpus, queries, embedding model, index, top-k, hardware, and measurement procedure fixed; compare retrieval recall with P50/P95 latency.
+- Store experiment reports under `docs/experiments/`. Every report must identify the code revision, data version and size, parameters, environment, procedure, baseline, raw/aggregated results, limitations, and conclusion.
+- Do not claim a 500-question dataset, quality improvement, cache hit rate, traffic volume, or latency reduction until the underlying data and report exist.
+
 ## Proposed architecture
 
 ```text
@@ -67,8 +92,8 @@ The model and embedding providers will be accessed behind interfaces so they can
 ## Repository documents
 
 - [`requirements.md`](requirements.md): product requirements, acceptance criteria, non-functional requirements, and phased scope.
-- [`IllinoisChat学习笔记.txt`](IllinoisChat学习笔记.txt): verified implementation notes and interview explanations, updated throughout development.
 - [`docs/api-contract.md`](docs/api-contract.md): contracts for endpoints already introduced in code.
+- [`docs/experiments/README.md`](docs/experiments/README.md): required template and evidence rules for reproducible experiments.
 
 ## Local development
 
@@ -80,12 +105,12 @@ docker compose up --build -d api postgres
 curl http://localhost:8000/api/v1/health
 ```
 
-Run the backend quality checks in the reproducible Python 3.12 test image:
+Run the backend quality checks, including PostgreSQL integration tests, in reproducible Python 3.12 containers:
 
 ```bash
-docker build --target test -t illinois-chat-test .
-docker run --rm illinois-chat-test ruff check .
-docker run --rm illinois-chat-test pytest -o cache_dir=/tmp/pytest_cache --cov=app --cov-report=term-missing --cov-fail-under=90
+docker compose --profile test build migrate test
+docker compose run --rm migrate
+docker compose --profile test run --rm --no-deps test
 docker compose config --quiet
 ```
 
