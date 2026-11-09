@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     embedding_cache_path: Path = Path("data/models")
     hnsw_ef_search: int = 64
     retrieval_top_k: int = 5
+    retrieval_min_score: float = 0.35
+
+    llm_base_url: str = "http://host.docker.internal:11434/v1"
+    llm_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    llm_model: str = "qwen3:4b"
+    llm_timeout_seconds: float = 60.0
 
     @property
     def database_url(self) -> str:

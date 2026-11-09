@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0, M1-A, and M1-B ingestion/vector retrieval completed and locally verified**. Grounded answer generation, sentence-level citations, and evidence-based refusal remain pending M1 work.
+Current checkpoint: **M0 and the M1 end-to-end RAG baseline are implemented and locally verified**. Measured retrieval-quality improvements remain M2 work.
 
 ## Problem
 
@@ -59,8 +59,12 @@ All milestones M0-M5 are required for the V1 release. Milestones are implementat
 - Transactional Chunk and Embedding persistence, with failed ingestion recorded on the document version.
 - Configurable pgvector cosine retrieval with `hnsw.ef_search`, course filtering, source metadata, and similarity scores.
 - Document registration, status, ingestion, deletion, and vector-search API contracts.
+- OpenAI-compatible chat-model boundary, usable with Ollama locally or another compatible provider through configuration.
+- Grounded answer generation with a retrieval-score gate, model evidence-sufficiency decision, and safe refusal paths.
+- Sentence-level citation IDs validated against the exact retrieved context, with document/page/section evidence in the response.
+- Privacy-preserving request audit records containing a query hash, latency, decisions, retrieved/cited chunk IDs, and model name rather than raw student text.
 
-M1 still does **not** generate natural-language answers. Grounded generation, sentence-level citation validation, and insufficient-evidence refusal remain pending before M1 is complete.
+M1 establishes a functional baseline, not a measured quality claim. Hybrid retrieval, reranking, a manually reviewed 30-50 question evaluation set, and controlled HNSW experiments remain M2 work.
 
 ## Evaluation evidence policy
 
@@ -104,6 +108,8 @@ cp .env.example .env
 docker compose up --build -d api postgres
 curl http://localhost:8000/api/v1/health
 ```
+
+For local generation, start an OpenAI-compatible provider and configure `LLM_BASE_URL` and `LLM_MODEL`. The defaults target Ollama on the Docker host with `qwen3:4b`; the model is not downloaded automatically.
 
 Run the backend quality checks, including PostgreSQL integration tests, in reproducible Python 3.12 containers:
 

@@ -17,6 +17,7 @@ def test_metadata_contains_document_version_and_chunk_tables() -> None:
         "documents",
         "document_versions",
         "chunks",
+        "chat_request_logs",
     }
 
     chunks = Base.metadata.tables["chunks"]

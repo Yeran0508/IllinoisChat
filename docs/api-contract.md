@@ -55,3 +55,20 @@ Embeds the query and retrieves completed chunks for one course using pgvector co
 ```
 
 The response returns chunk, document, and version IDs; title and source filename; content; page/section metadata; and cosine similarity score. It returns evidence only and does not yet generate an answer.
+
+## `POST /api/v1/chat`
+
+Retrieves course evidence and returns either a grounded answer or an explicit refusal.
+
+```json
+{
+  "course_code": "CS411",
+  "query": "How does HNSW trade recall for latency?"
+}
+```
+
+An answered response contains `sentences`, where every item has one or more `citation_ids`. Each ID must resolve to a `citations` item backed by a chunk from `retrieved_chunk_ids`. Citation objects include document/version/chunk IDs, source name, page or section metadata, a bounded evidence excerpt, and retrieval score.
+
+A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `model_insufficient_evidence`, `invalid_model_output`, or `invalid_citation`. Model-provider failures return `503` without exposing provider details.
+
+The server records request ID, latency, model name, outcome, retrieval score, and retrieved/cited chunk IDs. It stores SHA-256 of the normalized query instead of raw student text.

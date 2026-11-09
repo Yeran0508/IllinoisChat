@@ -126,3 +126,28 @@ class Chunk(Base):
     )
 
     document_version: Mapped[DocumentVersion] = relationship(back_populates="chunks")
+
+
+class ChatRequestLog(Base):
+    __tablename__ = "chat_request_logs"
+    __table_args__ = (
+        CheckConstraint("latency_ms >= 0", name="latency_nonnegative"),
+        CheckConstraint(
+            "outcome IN ('answered', 'refused', 'model_error')",
+            name="valid_outcome",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    course_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    query_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)
+    refusal_reason: Mapped[str | None] = mapped_column(String(100))
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    top_score: Mapped[float | None] = mapped_column()
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    retrieved_chunk_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    cited_chunk_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

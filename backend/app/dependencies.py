@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.session import SessionLocal, get_db
+from app.generation.audit import SqlAlchemyChatAuditLogger
+from app.generation.models import ChatModelProvider, OpenAICompatibleChatModel
+from app.generation.service import GroundedChatService
 from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.service import DocumentIngestionService
 from app.ingestion.storage import LocalDocumentStorage
@@ -54,6 +57,32 @@ def get_retrieval_service(
         session=session,
         embedder=embedder,
         ef_search=get_settings().hnsw_ef_search,
+    )
+
+
+@lru_cache
+def get_chat_model() -> ChatModelProvider:
+    settings = get_settings()
+    return OpenAICompatibleChatModel(
+        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key.get_secret_value(),
+        model_name=settings.llm_model,
+        timeout_seconds=settings.llm_timeout_seconds,
+    )
+
+
+def get_chat_service(
+    session: Annotated[Session, Depends(get_db)],
+    retrieval: Annotated[VectorRetrievalService, Depends(get_retrieval_service)],
+    model: Annotated[ChatModelProvider, Depends(get_chat_model)],
+) -> GroundedChatService:
+    settings = get_settings()
+    return GroundedChatService(
+        retrieval=retrieval,
+        model=model,
+        audit=SqlAlchemyChatAuditLogger(session),
+        top_k=settings.retrieval_top_k,
+        minimum_score=settings.retrieval_min_score,
     )
 
 

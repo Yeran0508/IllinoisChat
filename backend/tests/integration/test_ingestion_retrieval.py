@@ -5,8 +5,10 @@ import re
 from collections.abc import Sequence
 
 import pytest
-from app.db.models import Chunk, Course, DocumentVersion
+from app.db.models import ChatRequestLog, Chunk, Course, DocumentVersion
 from app.db.session import SessionLocal
+from app.generation.audit import SqlAlchemyChatAuditLogger
+from app.generation.service import GroundedChatService
 from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.service import DocumentIngestionService
 from app.ingestion.storage import LocalDocumentStorage
@@ -44,10 +46,12 @@ class DeterministicEmbeddingProvider:
 @pytest.fixture
 def db_session():
     with SessionLocal() as session:
+        session.execute(delete(ChatRequestLog))
         session.execute(delete(Course))
         session.commit()
         yield session
         session.rollback()
+        session.execute(delete(ChatRequestLog))
         session.execute(delete(Course))
         session.commit()
 
@@ -139,3 +143,45 @@ def test_ingestion_failure_is_persisted(ingestion_service, db_session) -> None:
     assert version is not None
     assert version.status == "failed"
     assert "unclosed fenced code block" in (version.error_message or "")
+
+
+def test_ingestion_to_grounded_answer_and_private_audit(db_session, ingestion_service) -> None:
+    registered = ingestion_service.register(
+        course_code="CS-TEST",
+        course_name="Test Course",
+        title="HNSW Notes",
+        source_name="hnsw.md",
+        media_type="text/markdown",
+        content=b"# HNSW\n\nHNSW is an approximate nearest-neighbor graph index.",
+    )
+    ingestion_service.ingest(registered.version_id)
+    retrieval = VectorRetrievalService(db_session, DeterministicEmbeddingProvider(), ef_search=64)
+
+    class GroundedModel:
+        model_name = "integration-static-model"
+
+        def complete(self, **_kwargs) -> str:
+            return (
+                '{"sufficient":true,"sentences":['
+                '{"text":"HNSW is an approximate nearest-neighbor graph index.",'
+                '"citation_ids":[1]}]}'
+            )
+
+    service = GroundedChatService(
+        retrieval=retrieval,
+        model=GroundedModel(),
+        audit=SqlAlchemyChatAuditLogger(db_session),
+        top_k=2,
+        minimum_score=0.0,
+    )
+    raw_query = "What is HNSW?"
+    result = service.ask(course_code="CS-TEST", query=raw_query)
+
+    assert result.status == "answered"
+    assert result.citations[0].chunk_id in result.retrieved_chunk_ids
+    log = db_session.get(ChatRequestLog, result.request_id)
+    assert log is not None
+    assert log.outcome == "answered"
+    assert log.query_sha256 == hashlib.sha256(raw_query.encode()).hexdigest()
+    assert raw_query not in str(log.__dict__)
+    assert log.cited_chunk_ids == [str(result.citations[0].chunk_id)]
