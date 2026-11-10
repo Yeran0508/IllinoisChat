@@ -26,6 +26,9 @@ logs/
 
 # Local experiment outputs
 docs/experiments/results/
+!docs/experiments/results/
+docs/experiments/results/*
+!docs/experiments/results/m2-baseline.json
 
 # Local learning notes
 IllinoisChat学习笔记.txt

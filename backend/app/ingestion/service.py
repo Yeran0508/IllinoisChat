@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -11,6 +12,11 @@ from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.parsers import SUPPORTED_MEDIA_TYPES, parse_document
 from app.ingestion.storage import LocalDocumentStorage
 from app.retrieval.embeddings import EmbeddingProvider
+from app.retrieval.lexical import (
+    ChunkLexicalIndex,
+    IndexedChunk,
+    NoOpChunkLexicalIndex,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,12 +39,14 @@ class DocumentIngestionService:
         embedder: EmbeddingProvider,
         chunker: StructureAwareChunker,
         max_upload_bytes: int,
+        lexical_index: ChunkLexicalIndex | None = None,
     ) -> None:
         self.session = session
         self.storage = storage
         self.embedder = embedder
         self.chunker = chunker
         self.max_upload_bytes = max_upload_bytes
+        self.lexical_index = lexical_index or NoOpChunkLexicalIndex()
 
     def register(
         self,
@@ -145,22 +153,47 @@ class DocumentIngestionService:
                 raise ValueError("Embedding provider returned an unexpected vector dimension")
 
             self.session.execute(delete(Chunk).where(Chunk.document_version_id == version.id))
+            stored_chunks: list[Chunk] = []
             for chunk, embedding in zip(chunk_values, embeddings, strict=True):
-                self.session.add(
-                    Chunk(
-                        id=uuid.uuid4(),
-                        document_version_id=version.id,
-                        chunk_index=chunk.index,
-                        content=chunk.content,
-                        content_sha256=chunk.content_sha256,
-                        char_count=chunk.char_count,
-                        page_number=chunk.page_number,
-                        section_path=chunk.section_path,
-                        block_type=chunk.block_type,
-                        chunk_metadata=chunk.metadata,
-                        embedding=embedding,
-                    )
+                stored = Chunk(
+                    id=uuid.uuid4(),
+                    document_version_id=version.id,
+                    chunk_index=chunk.index,
+                    content=chunk.content,
+                    content_sha256=chunk.content_sha256,
+                    char_count=chunk.char_count,
+                    page_number=chunk.page_number,
+                    section_path=chunk.section_path,
+                    block_type=chunk.block_type,
+                    chunk_metadata=chunk.metadata,
+                    embedding=embedding,
                 )
+                self.session.add(stored)
+                stored_chunks.append(stored)
+
+            document = self.session.get(Document, version.document_id)
+            if document is None:
+                raise DocumentNotFoundError("Document disappeared during ingestion")
+            course = self.session.get(Course, document.course_id)
+            if course is None:
+                raise DocumentNotFoundError("Course disappeared during ingestion")
+            self.lexical_index.replace_version(
+                version.id,
+                [
+                    IndexedChunk(
+                        chunk_id=stored.id,
+                        document_id=document.id,
+                        version_id=version.id,
+                        course_code=course.code,
+                        title=document.title,
+                        source_name=document.source_name,
+                        content=stored.content,
+                        page_number=stored.page_number,
+                        section_path=stored.section_path,
+                    )
+                    for stored in stored_chunks
+                ],
+            )
 
             version.status = "completed"
             version.embedding_model = self.embedder.model_name
@@ -170,6 +203,8 @@ class DocumentIngestionService:
             return version
         except Exception as error:
             self.session.rollback()
+            with suppress(Exception):
+                self.lexical_index.delete_version(version_id)
             failed = self.session.get(DocumentVersion, version_id)
             if failed is not None:
                 failed.status = "failed"
@@ -190,6 +225,7 @@ class DocumentIngestionService:
     def delete_document(self, document_id: uuid.UUID) -> None:
         document = self.get_document(document_id)
         storage_keys = [version.storage_key for version in document.versions]
+        self.lexical_index.delete_document(document_id)
         self.session.delete(document)
         self.session.commit()
         for key in storage_keys:

@@ -44,7 +44,7 @@ Deletes the document, versions, chunks, and locally stored source files. Returns
 
 ## `POST /api/v1/retrieval/search`
 
-Embeds the query and retrieves completed chunks for one course using pgvector cosine distance.
+Retrieves vector and OpenSearch BM25 candidates for one course, fuses them with reciprocal rank fusion, and reranks the bounded candidate set with a cross-encoder.
 
 ```json
 {
@@ -54,7 +54,11 @@ Embeds the query and retrieves completed chunks for one course using pgvector co
 }
 ```
 
-The response returns chunk, document, and version IDs; title and source filename; content; page/section metadata; and cosine similarity score. It returns evidence only and does not yet generate an answer.
+The response returns source IDs and metadata, normalized final score, and `retrieval_metadata` containing available component scores, ranks, RRF score, reranker logit, and model name.
+
+## `POST /api/v1/evaluations/run`
+
+Runs the configured versioned dataset against hybrid retrieval. The response contains case counts, Recall@5, nDCG@10, mean/P50/P95 latency, and review-status counts. The committed dataset remains `pending_human_review`, so the output is provisional evidence.
 
 ## `POST /api/v1/chat`
 

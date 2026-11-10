@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-11-10T06:54:37.770333+00:00",
+  "dataset": "m2-v1.jsonl",
+  "dataset_review_status": "pending_human_review",
+  "corpus": "m2-retrieval-notes.md",
+  "chunk_count": 34,
+  "repetitions": 5,
+  "python": "3.12.10 (main, May 21 2025, 23:34:56) [GCC 12.2.0]",
+  "platform": "Linux-6.10.14-linuxkit-x86_64-with-glibc2.36",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "reranker_model": "Xenova/ms-marco-MiniLM-L-6-v2",
+  "candidate_k": 20,
+  "rrf_rank_constant": 60,
+  "pipelines": {
+    "vector_ef64": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9736378395408184,
+      "latency_ms": {
+        "mean": 17.087041180015408,
+        "p50": 16.385615497711115,
+        "p95": 24.84543620230397
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    },
+    "bm25": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9643080281683121,
+      "latency_ms": {
+        "mean": 9.245109900075477,
+        "p50": 9.061500517418608,
+        "p95": 10.922211929573663
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    },
+    "hybrid_reranked": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9868189197704093,
+      "latency_ms": {
+        "mean": 277.62953857849686,
+        "p50": 259.94393101427704,
+        "p95": 370.4738124448339
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    }
+  },
+  "hnsw": {
+    "16": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9736378395408184,
+      "latency_ms": {
+        "mean": 16.585302307586453,
+        "p50": 15.341324993642047,
+        "p95": 26.376512467686553
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    },
+    "64": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9736378395408184,
+      "latency_ms": {
+        "mean": 20.64286440124436,
+        "p50": 18.910308004706167,
+        "p95": 34.39334996655815
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    },
+    "256": {
+      "dataset": "m2-v1.jsonl",
+      "total_cases": 30,
+      "scored_cases": 28,
+      "recall_at_5": 1.0,
+      "ndcg_at_10": 0.9736378395408184,
+      "latency_ms": {
+        "mean": 21.69723946488895,
+        "p50": 16.871506013558246,
+        "p95": 34.511211985954965
+      },
+      "review_status_counts": {
+        "pending_human_review": 30
+      }
+    }
+  }
+}

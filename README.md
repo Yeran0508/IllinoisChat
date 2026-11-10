@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0 and the M1 end-to-end RAG baseline are implemented and locally verified**. Measured retrieval-quality improvements remain M2 work.
+Current checkpoint: **M0, M1, and the M2 hybrid-retrieval implementation are locally verified**. The initial M2 experiment is provisional until its 30 labels receive human review.
 
 ## Problem
 
@@ -63,8 +63,11 @@ All milestones M0-M5 are required for the V1 release. Milestones are implementat
 - Grounded answer generation with a retrieval-score gate, model evidence-sufficiency decision, and safe refusal paths.
 - Sentence-level citation IDs validated against the exact retrieved context, with document/page/section evidence in the response.
 - Privacy-preserving request audit records containing a query hash, latency, decisions, retrieved/cited chunk IDs, and model name rather than raw student text.
+- OpenSearch BM25 retrieval synchronized with document ingestion and deletion.
+- Reciprocal rank fusion over vector and BM25 candidates, followed by a configurable FastEmbed cross-encoder.
+- Versioned 30-question evaluation draft with Recall@5, nDCG@10, P50/P95, and controlled HNSW `ef_search` experiments.
 
-M1 establishes a functional baseline, not a measured quality claim. Hybrid retrieval, reranking, a manually reviewed 30-50 question evaluation set, and controlled HNSW experiments remain M2 work.
+M2's engineering path is complete, but its first labels are deliberately marked `pending_human_review`; the provisional experiment must not be presented as a final quality claim.
 
 ## Evaluation evidence policy
 
@@ -120,10 +123,10 @@ docker compose --profile test run --rm --no-deps test
 docker compose config --quiet
 ```
 
-OpenSearch and Redis are declared for the complete V1 but are opt-in until their application integrations are implemented:
+OpenSearch is now required by the M2 hybrid retrieval path and starts with the API. Redis remains opt-in until M5:
 
 ```bash
-docker compose --profile full up -d
+docker compose --profile full up -d redis
 ```
 
 ## License

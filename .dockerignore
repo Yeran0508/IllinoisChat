@@ -6,4 +6,10 @@ __pycache__
 .pytest_cache
 .ruff_cache
 data
+!data/
+data/*
+!data/evaluation/
+!data/evaluation/**
+!data/sample/
+!data/sample/**
 logs

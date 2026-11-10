@@ -138,6 +138,11 @@ def test_register_get_ingest_delete_and_search_contracts(client) -> None:
     assert chat.json()["sentences"][0]["citation_ids"] == [1]
     assert chat.json()["citations"][0]["chunk_id"] == str(uuid.UUID(int=4))
 
+    evaluation = client.post("/api/v1/evaluations/run")
+    assert evaluation.status_code == 200
+    assert evaluation.json()["total_cases"] == 30
+    assert evaluation.json()["review_status_counts"] == {"pending_human_review": 30}
+
     deleted = client.delete(f"/api/v1/documents/{document_id}")
     assert deleted.status_code == 204
 

@@ -14,7 +14,10 @@ from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.service import DocumentIngestionService
 from app.ingestion.storage import LocalDocumentStorage
 from app.retrieval.embeddings import EmbeddingProvider, FastEmbedBgeProvider
-from app.retrieval.service import VectorRetrievalService
+from app.retrieval.hybrid import HybridRetrievalService
+from app.retrieval.lexical import ChunkLexicalIndex, OpenSearchBM25Index
+from app.retrieval.reranking import FastEmbedCrossEncoderReranker, Reranker
+from app.retrieval.service import RetrievalService, VectorRetrievalService
 
 
 @lru_cache
@@ -31,10 +34,30 @@ def get_embedding_provider() -> EmbeddingProvider:
     )
 
 
+@lru_cache
+def get_lexical_index() -> ChunkLexicalIndex:
+    settings = get_settings()
+    return OpenSearchBM25Index(
+        base_url=f"http://{settings.opensearch_host}:{settings.opensearch_port}",
+        index_name=settings.opensearch_index,
+        timeout_seconds=settings.opensearch_timeout_seconds,
+    )
+
+
+@lru_cache
+def get_reranker() -> Reranker:
+    settings = get_settings()
+    return FastEmbedCrossEncoderReranker(
+        model_name=settings.reranker_model,
+        cache_dir=str(settings.embedding_cache_path),
+    )
+
+
 def get_document_service(
     session: Annotated[Session, Depends(get_db)],
     storage: Annotated[LocalDocumentStorage, Depends(get_storage)],
     embedder: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+    lexical_index: Annotated[ChunkLexicalIndex, Depends(get_lexical_index)],
 ) -> DocumentIngestionService:
     settings = get_settings()
     return DocumentIngestionService(
@@ -46,10 +69,11 @@ def get_document_service(
             settings.chunk_overlap_characters,
         ),
         max_upload_bytes=settings.max_upload_bytes,
+        lexical_index=lexical_index,
     )
 
 
-def get_retrieval_service(
+def get_vector_retrieval_service(
     session: Annotated[Session, Depends(get_db)],
     embedder: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> VectorRetrievalService:
@@ -57,6 +81,21 @@ def get_retrieval_service(
         session=session,
         embedder=embedder,
         ef_search=get_settings().hnsw_ef_search,
+    )
+
+
+def get_retrieval_service(
+    vector: Annotated[VectorRetrievalService, Depends(get_vector_retrieval_service)],
+    lexical: Annotated[ChunkLexicalIndex, Depends(get_lexical_index)],
+    reranker: Annotated[Reranker, Depends(get_reranker)],
+) -> RetrievalService:
+    settings = get_settings()
+    return HybridRetrievalService(
+        vector=vector,
+        lexical=lexical,
+        reranker=reranker,
+        candidate_k=settings.retrieval_candidate_k,
+        rrf_rank_constant=settings.rrf_rank_constant,
     )
 
 
@@ -73,7 +112,7 @@ def get_chat_model() -> ChatModelProvider:
 
 def get_chat_service(
     session: Annotated[Session, Depends(get_db)],
-    retrieval: Annotated[VectorRetrievalService, Depends(get_retrieval_service)],
+    retrieval: Annotated[RetrievalService, Depends(get_retrieval_service)],
     model: Annotated[ChatModelProvider, Depends(get_chat_model)],
 ) -> GroundedChatService:
     settings = get_settings()
@@ -98,5 +137,6 @@ def run_ingestion(version_id: uuid.UUID) -> None:
                 settings.chunk_overlap_characters,
             ),
             max_upload_bytes=settings.max_upload_bytes,
+            lexical_index=get_lexical_index(),
         )
         service.ingest(version_id)

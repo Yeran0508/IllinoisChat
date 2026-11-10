@@ -17,6 +17,8 @@ services:
       POSTGRES_PORT: 5432
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX:-illinois-chat-chunks-v1}
+      OPENSEARCH_TIMEOUT_SECONDS: ${OPENSEARCH_TIMEOUT_SECONDS:-10}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CHUNK_MAX_CHARACTERS: ${CHUNK_MAX_CHARACTERS:-1200}
@@ -30,6 +32,9 @@ services:
       HNSW_EF_SEARCH: ${HNSW_EF_SEARCH:-64}
       RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-5}
       RETRIEVAL_MIN_SCORE: ${RETRIEVAL_MIN_SCORE:-0.35}
+      RETRIEVAL_CANDIDATE_K: ${RETRIEVAL_CANDIDATE_K:-20}
+      RRF_RANK_CONSTANT: ${RRF_RANK_CONSTANT:-60}
+      RERANKER_MODEL: ${RERANKER_MODEL:-Xenova/ms-marco-MiniLM-L-6-v2}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
@@ -37,6 +42,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
@@ -89,9 +96,14 @@ services:
       DOCUMENT_STORAGE_PATH: /tmp/illinois-chat-test-uploads
       EMBEDDING_CACHE_PATH: /tmp/illinois-chat-test-models
       RUN_INTEGRATION_TESTS: "1"
+      RUN_OPENSEARCH_TESTS: "1"
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
     depends_on:
       migrate:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
     profiles: ["test"]
 
   postgres:
@@ -113,10 +125,9 @@ services:
 
   opensearch:
     image: opensearchproject/opensearch:2.19.1
-    profiles: ["full"]
     environment:
       discovery.type: single-node
-      plugins.security.disabled: "true"
+      DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
       - "${OPENSEARCH_PORT:-9200}:9200"

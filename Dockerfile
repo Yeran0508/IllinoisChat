@@ -12,6 +12,8 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend
+COPY data/evaluation ./data/evaluation
+COPY data/sample ./data/sample
 COPY alembic.ini ./
 COPY migrations ./migrations
 

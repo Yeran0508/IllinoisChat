@@ -1,5 +1,6 @@
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Protocol
 
 from sqlalchemy import Float, cast, func, select
 from sqlalchemy.orm import Session
@@ -19,6 +20,11 @@ class RetrievalResult:
     page_number: int | None
     section_path: str | None
     score: float
+    retrieval_metadata: dict[str, float | int | str] = field(default_factory=dict)
+
+
+class RetrievalService(Protocol):
+    def search(self, *, course_code: str, query: str, top_k: int) -> list[RetrievalResult]: ...
 
 
 class VectorRetrievalService:
@@ -78,6 +84,7 @@ class VectorRetrievalService:
                 page_number=chunk.page_number,
                 section_path=chunk.section_path,
                 score=float(score),
+                retrieval_metadata={"vector_score": float(score)},
             )
             for chunk, document, version, score in rows
         ]

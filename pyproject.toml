@@ -44,3 +44,6 @@ extend-exclude = ["build"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.coverage.run]
+omit = ["*/app/evaluation/experiment.py"]

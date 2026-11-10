@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.dependencies import get_retrieval_service
-from app.retrieval.service import VectorRetrievalService
+from app.retrieval.service import RetrievalService
 
 router = APIRouter(prefix="/retrieval", tags=["retrieval"])
 
@@ -28,6 +28,7 @@ class SearchResultResponse(BaseModel):
     page_number: int | None
     section_path: str | None
     score: float
+    retrieval_metadata: dict[str, float | int | str]
 
 
 class SearchResponse(BaseModel):
@@ -38,7 +39,7 @@ class SearchResponse(BaseModel):
 @router.post("/search", response_model=SearchResponse)
 def search_chunks(
     request: SearchRequest,
-    service: Annotated[VectorRetrievalService, Depends(get_retrieval_service)],
+    service: Annotated[RetrievalService, Depends(get_retrieval_service)],
 ) -> SearchResponse:
     try:
         results = service.search(

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     opensearch_host: str = "localhost"
     opensearch_port: int = 9200
+    opensearch_index: str = "illinois-chat-chunks-v1"
+    opensearch_timeout_seconds: float = 10.0
     redis_host: str = "localhost"
     redis_port: int = 6379
 
@@ -43,6 +45,10 @@ class Settings(BaseSettings):
     hnsw_ef_search: int = 64
     retrieval_top_k: int = 5
     retrieval_min_score: float = 0.35
+    retrieval_candidate_k: int = 20
+    rrf_rank_constant: int = 60
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    evaluation_dataset_path: Path = Path("data/evaluation/m2-v1.jsonl")
 
     llm_base_url: str = "http://host.docker.internal:11434/v1"
     llm_api_key: SecretStr = Field(default=SecretStr(""), repr=False)

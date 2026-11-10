@@ -31,6 +31,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      opensearch:
+        image: opensearchproject/opensearch:2.19.1
+        env:
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: "true"
+          OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl --fail http://localhost:9200/_cluster/health"
+          --health-interval 15s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +66,9 @@ jobs:
           RUN_INTEGRATION_TESTS: "1"
           DOCUMENT_STORAGE_PATH: /tmp/illinois-chat-test-uploads
           EMBEDDING_CACHE_PATH: /tmp/illinois-chat-test-models
+          RUN_OPENSEARCH_TESTS: "1"
+          OPENSEARCH_HOST: localhost
+          OPENSEARCH_PORT: 9200
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=90
 
       - name: Verify migration round trip

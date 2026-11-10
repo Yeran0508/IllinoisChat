@@ -43,6 +43,25 @@ class DeterministicEmbeddingProvider:
         return self._embed(text)
 
 
+class RecordingLexicalIndex:
+    def __init__(self) -> None:
+        self.versions = {}
+        self.deleted_documents = []
+        self.deleted_versions = []
+
+    def replace_version(self, version_id, chunks) -> None:
+        self.versions[version_id] = list(chunks)
+
+    def delete_document(self, document_id) -> None:
+        self.deleted_documents.append(document_id)
+
+    def delete_version(self, version_id) -> None:
+        self.deleted_versions.append(version_id)
+
+    def search(self, **_kwargs):
+        return []
+
+
 @pytest.fixture
 def db_session():
     with SessionLocal() as session:
@@ -64,6 +83,7 @@ def ingestion_service(db_session, tmp_path):
         embedder=DeterministicEmbeddingProvider(),
         chunker=StructureAwareChunker(max_characters=200, overlap_characters=20),
         max_upload_bytes=10_000,
+        lexical_index=RecordingLexicalIndex(),
     )
 
 
@@ -105,6 +125,9 @@ HNSW is an approximate nearest-neighbor graph index.
         )
         == 4
     )
+    indexed = ingestion_service.lexical_index.versions[version.id]
+    assert len(indexed) == 4
+    assert all(value.course_code == "CS-TEST" for value in indexed)
 
     retrieval = VectorRetrievalService(
         db_session,
@@ -120,6 +143,7 @@ HNSW is an approximate nearest-neighbor graph index.
 
     storage_key = version.storage_key
     ingestion_service.delete_document(first.document_id)
+    assert first.document_id in ingestion_service.lexical_index.deleted_documents
     assert db_session.get(DocumentVersion, first.version_id) is None
     with pytest.raises(FileNotFoundError):
         ingestion_service.storage.read(storage_key)
@@ -143,6 +167,7 @@ def test_ingestion_failure_is_persisted(ingestion_service, db_session) -> None:
     assert version is not None
     assert version.status == "failed"
     assert "unclosed fenced code block" in (version.error_message or "")
+    assert registered.version_id in ingestion_service.lexical_index.deleted_versions
 
 
 def test_ingestion_to_grounded_answer_and_private_audit(db_session, ingestion_service) -> None:
