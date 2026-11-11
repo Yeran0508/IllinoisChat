@@ -19,7 +19,7 @@ Confirms that the API process and HTTP routing are available. It is a liveness e
 
 ## `POST /api/v1/documents`
 
-Registers a PDF, UTF-8 Markdown, or UTF-8 plain-text source as multipart form data. Required fields are `course_code`, `course_name`, `title`, and `file`. A new content hash returns `201`; an existing version of the same logical source returns `200` with `reused: true`.
+Registers a PDF, UTF-8 Markdown, or UTF-8 plain-text source as multipart form data. Required fields are `course_code`, `course_name`, `title`, and `file`. Optional `is_protected=true` classifies assignment material. Protected status cannot change between versions of one logical source. A new content hash returns `201`; an existing version returns `200` with `reused: true`.
 
 ```json
 {
@@ -58,11 +58,11 @@ The response returns source IDs and metadata, normalized final score, and `retri
 
 ## `POST /api/v1/evaluations/run`
 
-Runs the configured versioned dataset against hybrid retrieval. The response contains case counts, Recall@5, nDCG@10, mean/P50/P95 latency, and review-status counts. The committed dataset remains `pending_human_review`, so the output is provisional evidence.
+Runs the configured versioned dataset against hybrid retrieval. The response contains case counts, Recall@5, nDCG@10, mean/P50/P95 latency, and review-status counts. The committed 30-case M2 dataset is manually reviewed; experiment reports still document corpus size and other limitations separately.
 
 ## `POST /api/v1/chat`
 
-Retrieves course evidence and returns either a grounded answer or an explicit refusal.
+Checks the protected-assignment corpus first, then either returns a bounded homework hint or retrieves ordinary course evidence and returns a grounded answer or explicit refusal.
 
 ```json
 {
@@ -71,8 +71,10 @@ Retrieves course evidence and returns either a grounded answer or an explicit re
 }
 ```
 
-An answered response contains `sentences`, where every item has one or more `citation_ids`. Each ID must resolve to a `citations` item backed by a chunk from `retrieved_chunk_ids`. Citation objects include document/version/chunk IDs, source name, page or section metadata, a bounded evidence excerpt, and retrieval score.
+An answered response contains `sentences`, where every item has one or more `citation_ids`. Each ID must resolve to a `citations` item backed by a chunk from `retrieved_chunk_ids`. A separate fail-closed support-validation pass checks that each complete sentence is entailed by its cited passages. Citation objects include document/version/chunk IDs, source name, page or section metadata, a bounded evidence excerpt, and retrieval score.
 
-A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `model_insufficient_evidence`, `invalid_model_output`, or `invalid_citation`. Model-provider failures return `503` without exposing provider details.
+A protected match returns `status: "homework_hint"`, `safety_mode: "protected_assignment"`, the configured `hint_level` (1-3), and a bounded study hint. It does not call normal retrieval or the answer model. Ordinary protected chunks are excluded from both vector and BM25 answer retrieval.
+
+A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `model_insufficient_evidence`, `invalid_model_output`, `invalid_citation`, or `unsupported_claim`. Model-provider failures return `503` without exposing provider details.
 
 The server records request ID, latency, model name, outcome, retrieval score, and retrieved/cited chunk IDs. It stores SHA-256 of the normalized query instead of raw student text.

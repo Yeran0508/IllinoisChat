@@ -46,4 +46,4 @@ extend-exclude = ["build"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.coverage.run]
-omit = ["*/app/evaluation/experiment.py"]
+omit = ["*/app/evaluation/experiment.py", "*/app/evaluation/safety_experiment.py"]

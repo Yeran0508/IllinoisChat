@@ -57,6 +57,7 @@ class DocumentIngestionService:
         source_name: str,
         media_type: str,
         content: bytes,
+        is_protected: bool = False,
     ) -> RegistrationResult:
         course_code = course_code.strip()
         course_name = course_name.strip()
@@ -90,11 +91,14 @@ class DocumentIngestionService:
                 course_id=course.id,
                 title=title,
                 source_name=source_name,
+                is_protected=is_protected,
             )
             self.session.add(document)
             self.session.flush()
         else:
             document.title = title
+            if document.is_protected != is_protected:
+                raise ValueError("A document's protected status cannot change between versions")
 
         existing = self.session.scalar(
             select(DocumentVersion).where(
@@ -179,7 +183,7 @@ class DocumentIngestionService:
                 raise DocumentNotFoundError("Course disappeared during ingestion")
             self.lexical_index.replace_version(
                 version.id,
-                [
+                [] if document.is_protected else [
                     IndexedChunk(
                         chunk_id=stored.id,
                         document_id=document.id,

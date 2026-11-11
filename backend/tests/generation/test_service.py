@@ -139,3 +139,22 @@ def test_blank_query_is_rejected() -> None:
         chat.ask(course_code="CS411", query="  ")
 
     assert audit.events == []
+
+
+def test_valid_citation_with_unsupported_claim_is_refused() -> None:
+    class RejectSupport:
+        def validate(self, **_kwargs):
+            return [False]
+
+    chat, _model, audit = service(
+        [evidence()],
+        '{"sufficient":true,"sentences":['
+        '{"text":"HNSW is always exact.","citation_ids":[1]}]}',
+    )
+    chat.sentence_support = RejectSupport()
+
+    result = chat.ask(course_code="CS411", query="Is HNSW exact?")
+
+    assert result.status == "insufficient_evidence"
+    assert result.refusal_reason == "unsupported_claim"
+    assert audit.events[0].refusal_reason == "unsupported_claim"

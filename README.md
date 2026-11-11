@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0, M1, and the M2 hybrid-retrieval implementation are locally verified**. The initial M2 experiment is provisional until its 30 labels receive human review.
+Current checkpoint: **M0-M3 are locally verified**. The 30-case M2 dataset and 14-case M3 safety dataset are manually reviewed, and the M3 baseline/CI regression path is recorded. The small synthetic datasets limit generalization, so measured percentages are not production claims.
 
 ## Problem
 
@@ -46,7 +46,7 @@ Authentication beyond a minimal administrator boundary, multi-course tenancy, na
 
 All milestones M0-M5 are required for the V1 release. Milestones are implementation checkpoints, not deferred product versions.
 
-### Current M1 implementation
+### Current implementation
 
 - SQLAlchemy models and Alembic migration for courses, logical documents, content-addressed document versions, and chunks.
 - A 384-dimensional pgvector column with an HNSW cosine-distance index, ready for the M1 embedding baseline.
@@ -66,8 +66,12 @@ All milestones M0-M5 are required for the V1 release. Milestones are implementat
 - OpenSearch BM25 retrieval synchronized with document ingestion and deletion.
 - Reciprocal rank fusion over vector and BM25 candidates, followed by a configurable FastEmbed cross-encoder.
 - Versioned 30-question evaluation draft with Recall@5, nDCG@10, P50/P95, and controlled HNSW `ef_search` experiments.
+- Protected-assignment documents are explicitly classified and excluded from normal vector and BM25 answer retrieval.
+- A protected-only vector matcher runs before answer retrieval and returns configurable level 1-3 bounded hints without calling the answer model.
+- A second fail-closed model pass checks whether every generated sentence is supported by its cited evidence.
+- Citation precision, unsupported-claim rate, and assignment-leakage metrics plus a 12-case adversarial draft are implemented.
 
-M2's engineering path is complete, but its first labels are deliberately marked `pending_human_review`; the provisional experiment must not be presented as a final quality claim.
+M2's 30 labels and M3's 14 detection/response-policy labels are manually reviewed. M3's reproducible baseline records both the failed pure-semantic policy and the adopted identity plus risk-gated semantic policy. Its perfect committed-dataset regression result must not be presented as universal assignment-protection accuracy.
 
 ## Evaluation evidence policy
 

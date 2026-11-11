@@ -18,6 +18,8 @@ from app.retrieval.hybrid import HybridRetrievalService
 from app.retrieval.lexical import ChunkLexicalIndex, OpenSearchBM25Index
 from app.retrieval.reranking import FastEmbedCrossEncoderReranker, Reranker
 from app.retrieval.service import RetrievalService, VectorRetrievalService
+from app.safety.assignment import SqlAlchemyProtectedAssignmentMatcher
+from app.safety.support import ModelSentenceSupportValidator
 
 
 @lru_cache
@@ -122,6 +124,14 @@ def get_chat_service(
         audit=SqlAlchemyChatAuditLogger(session),
         top_k=settings.retrieval_top_k,
         minimum_score=settings.retrieval_min_score,
+        assignment_matcher=SqlAlchemyProtectedAssignmentMatcher(
+            session,
+            get_embedding_provider(),
+            minimum_score=settings.protected_assignment_min_score,
+        ),
+        sentence_support=ModelSentenceSupportValidator(model),
+        hint_level=settings.homework_hint_level,
+        remove_unsupported_sentences=settings.remove_unsupported_sentences,
     )
 
 

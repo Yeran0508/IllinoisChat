@@ -45,6 +45,9 @@ class ChatResponse(BaseModel):
     retrieved_chunk_ids: list[uuid.UUID]
     model_name: str
     latency_ms: int
+    safety_mode: str = "standard"
+    hint_level: int | None = None
+    protected_match_score: float | None = None
 
 
 @router.post("", response_model=ChatResponse)

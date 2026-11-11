@@ -6,14 +6,14 @@ How do vector-only, BM25-only, and RRF plus cross-encoder retrieval compare on t
 
 ## Evidence status
 
-**Provisional only.** All 30 questions were deliberately authored and schema-validated, but their review_status remains pending_human_review. These results verify the experiment pipeline and provide a draft baseline; they are not resume-ready quality claims.
+All 30 labels were subsequently reviewed by the project author without changing the queries, answerability, relevant sections, or relevance grades. The raw artifact predates that status update, so its review-status count is stale, but its retrieval metrics remain computed from the same unchanged judgments. Corpus-size limitations still make the quality result unsuitable as a broad production claim.
 
 ## Reproducibility metadata
 
 - Date: 2026-11-10
 - Git base commit: 2b8ad3993ef78b44ab9fce315e595b95cf30a267
 - M2 implementation commit: 03af407
-- Evidence status: implementation, dataset, and raw result artifact are committed; labels remain pending human review, so quality conclusions are provisional.
+- Evidence status: implementation and raw artifact are committed; all labels were subsequently manually reviewed without judgment changes.
 - Dataset: data/evaluation/m2-v1.jsonl, 30 total cases, 28 answerable and scored
 - Corpus: data/sample/m2-retrieval-notes.md, one document and 34 chunks
 - Environment: Docker Desktop Linux 6.10.14-linuxkit x86_64; Python 3.12.10
@@ -54,7 +54,7 @@ The HNSW rankings were identical. Latency generally increased with larger ef_sea
 
 ## Limitations
 
-- Labels await human review.
+- The raw artifact records the pre-review status string; labels were subsequently reviewed without judgment changes.
 - The synthetic corpus has only 34 chunks and substantial vocabulary overlap with queries.
 - Only 28 answerable questions contribute to retrieval metrics.
 - Measurements use a local Docker CPU environment and include embedding time.
@@ -63,4 +63,4 @@ The HNSW rankings were identical. Latency generally increased with larger ef_sea
 
 ## Decision
 
-Adopt the hybrid pipeline as the M2 implementation default because it satisfies the architecture requirement and has the strongest provisional ranking quality. Do not claim a measured quality improvement on the resume until labels are human-reviewed and the corpus is expanded. Keep ef_search=64 as a conservative default; the present corpus is too small to justify changing it from quality evidence.
+Adopt the hybrid pipeline as the M2 implementation default because it satisfies the architecture requirement and has the strongest ranking quality on this reviewed synthetic set. Do not claim the measured difference as a general improvement on the resume until the corpus is expanded. Keep ef_search=64 as a conservative default; the present corpus is too small to justify changing it from quality evidence.

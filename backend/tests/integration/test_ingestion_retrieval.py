@@ -3,16 +3,19 @@ import math
 import os
 import re
 from collections.abc import Sequence
+from pathlib import Path
 
 import pytest
 from app.db.models import ChatRequestLog, Chunk, Course, DocumentVersion
 from app.db.session import SessionLocal
+from app.evaluation.safety import load_safety_dataset
 from app.generation.audit import SqlAlchemyChatAuditLogger
 from app.generation.service import GroundedChatService
 from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.service import DocumentIngestionService
 from app.ingestion.storage import LocalDocumentStorage
 from app.retrieval.service import VectorRetrievalService
+from app.safety.assignment import SqlAlchemyProtectedAssignmentMatcher
 from sqlalchemy import delete, func, select
 
 pytestmark = [
@@ -168,6 +171,66 @@ def test_ingestion_failure_is_persisted(ingestion_service, db_session) -> None:
     assert version.status == "failed"
     assert "unclosed fenced code block" in (version.error_message or "")
     assert registered.version_id in ingestion_service.lexical_index.deleted_versions
+
+
+def test_protected_assignment_is_isolated_from_normal_retrieval(
+    ingestion_service, db_session
+) -> None:
+    registered = ingestion_service.register(
+        course_code="CS-SAFETY",
+        course_name="Safety Course",
+        title="Homework 1",
+        source_name="homework-1.md",
+        media_type="text/markdown",
+        content=b"# Question 2\n\nImplement reciprocal rank fusion for two ranked lists.",
+        is_protected=True,
+    )
+    ingestion_service.ingest(registered.version_id)
+
+    assert ingestion_service.lexical_index.versions[registered.version_id] == []
+    retrieval = VectorRetrievalService(db_session, DeterministicEmbeddingProvider(), ef_search=64)
+    assert (
+        retrieval.search(
+            course_code="CS-SAFETY", query="implement reciprocal rank fusion", top_k=5
+        )
+        == []
+    )
+
+    matcher = SqlAlchemyProtectedAssignmentMatcher(
+        db_session,
+        DeterministicEmbeddingProvider(),
+        minimum_score=0.2,
+    )
+    match = matcher.match(
+        course_code="CS-SAFETY",
+        query="Complete Homework 1 Question 2 for reciprocal rank fusion",
+    )
+    assert match is not None
+    assert match.document_id == registered.document_id
+
+
+def test_human_reviewed_safety_dataset_has_no_detection_regression(
+    ingestion_service, db_session
+) -> None:
+    registered = ingestion_service.register(
+        course_code="CS-RAG",
+        course_name="Synthetic RAG Safety",
+        title="Homework 1",
+        source_name="m3-protected-homework.md",
+        media_type="text/markdown",
+        content=Path("data/sample/m3-protected-homework.md").read_bytes(),
+        is_protected=True,
+    )
+    ingestion_service.ingest(registered.version_id)
+    matcher = SqlAlchemyProtectedAssignmentMatcher(
+        db_session,
+        DeterministicEmbeddingProvider(),
+        minimum_score=0.82,
+    )
+
+    for case in load_safety_dataset(Path("data/evaluation/m3-safety-v1.jsonl")):
+        detected = matcher.match(course_code=case.course_code, query=case.query) is not None
+        assert detected is case.expected_protected, case.id
 
 
 def test_ingestion_to_grounded_answer_and_private_audit(db_session, ingestion_service) -> None:

@@ -3,7 +3,15 @@ import uuid
 from pathlib import Path
 
 import pytest
-from app.evaluation.metrics import ndcg_at_k, percentile, recall_at_k, summarize
+from app.evaluation.metrics import (
+    assignment_leakage_rate,
+    citation_precision,
+    ndcg_at_k,
+    percentile,
+    recall_at_k,
+    summarize,
+    unsupported_claim_rate,
+)
 from app.evaluation.runner import RetrievalEvaluator, load_dataset
 from app.retrieval.service import RetrievalResult
 
@@ -14,15 +22,18 @@ def test_metrics_have_known_values() -> None:
     assert ndcg_at_k([3, 2, 1], 3) == pytest.approx(1.0)
     assert percentile([10, 20, 30], 0.5) == 20
     assert summarize([10, 20, 30])["p95"] == pytest.approx(29)
+    assert citation_precision([True, True, False]) == pytest.approx(2 / 3)
+    assert unsupported_claim_rate([True, True, False]) == pytest.approx(1 / 3)
+    assert assignment_leakage_rate([False, True, False]) == pytest.approx(1 / 3)
 
 
-def test_committed_dataset_has_30_unique_pending_review_cases() -> None:
+def test_committed_dataset_has_30_unique_human_reviewed_cases() -> None:
     path = Path("data/evaluation/m2-v1.jsonl")
     cases = load_dataset(path)
 
     assert len(cases) == 30
     assert len({case.id for case in cases}) == 30
-    assert {case.review_status for case in cases} == {"pending_human_review"}
+    assert {case.review_status for case in cases} == {"human_reviewed"}
     assert any(not case.answerable for case in cases)
     assert any(case.category == "cross-section" for case in cases)
 

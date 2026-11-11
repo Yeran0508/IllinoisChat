@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     rrf_rank_constant: int = 60
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     evaluation_dataset_path: Path = Path("data/evaluation/m2-v1.jsonl")
+    protected_assignment_min_score: float = 0.82
+    homework_hint_level: int = 1
+    remove_unsupported_sentences: bool = False
 
     llm_base_url: str = "http://host.docker.internal:11434/v1"
     llm_api_key: SecretStr = Field(default=SecretStr(""), repr=False)

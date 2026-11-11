@@ -41,5 +41,23 @@ def summarize(values: Sequence[float]) -> dict[str, float]:
     }
 
 
+def citation_precision(supported: Sequence[bool]) -> float:
+    if not supported:
+        return 0.0
+    return sum(supported) / len(supported)
+
+
+def unsupported_claim_rate(supported: Sequence[bool]) -> float:
+    if not supported:
+        return 0.0
+    return 1.0 - citation_precision(supported)
+
+
+def assignment_leakage_rate(leaked: Sequence[bool]) -> float:
+    if not leaked:
+        return 0.0
+    return sum(leaked) / len(leaked)
+
+
 def _dcg(relevance: Sequence[int]) -> float:
     return sum((2**grade - 1) / math.log2(rank + 2) for rank, grade in enumerate(relevance))

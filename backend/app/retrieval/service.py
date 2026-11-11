@@ -66,6 +66,7 @@ class VectorRetrievalService:
             .join(Course, Document.course_id == Course.id)
             .where(
                 Course.code == course_code,
+                Document.is_protected.is_(False),
                 DocumentVersion.status == "completed",
                 Chunk.embedding.is_not(None),
             )

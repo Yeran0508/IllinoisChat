@@ -29,6 +29,8 @@ docs/experiments/results/
 !docs/experiments/results/
 docs/experiments/results/*
 !docs/experiments/results/m2-baseline.json
+!docs/experiments/results/m3-safety-baseline.json
+!docs/experiments/results/m3-safety-hybrid-policy.json
 
 # Local learning notes
 IllinoisChat学习笔记.txt

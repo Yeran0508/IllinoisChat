@@ -38,6 +38,7 @@ class DocumentResponse(BaseModel):
     course_id: uuid.UUID
     title: str
     source_name: str
+    is_protected: bool
     versions: list[DocumentVersionResponse]
 
 
@@ -62,6 +63,7 @@ async def register_document(
     title: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
     service: Annotated[DocumentIngestionService, Depends(get_document_service)],
+    is_protected: Annotated[bool, Form()] = False,
 ) -> DocumentRegistrationResponse:
     content = await file.read(service.max_upload_bytes + 1)
     media_type = (file.content_type or "").split(";", maxsplit=1)[0].strip().lower()
@@ -73,6 +75,7 @@ async def register_document(
             source_name=file.filename or "",
             media_type=media_type,
             content=content,
+            is_protected=is_protected,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -97,6 +100,7 @@ def get_document(
         course_id=document.course_id,
         title=document.title,
         source_name=document.source_name,
+        is_protected=document.is_protected,
         versions=[
             DocumentVersionResponse.model_validate(value, from_attributes=True)
             for value in versions

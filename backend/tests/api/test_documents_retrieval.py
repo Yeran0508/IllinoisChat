@@ -46,6 +46,7 @@ class FakeDocumentService:
             course_id=uuid.UUID(int=3),
             title="Notes",
             source_name="notes.md",
+            is_protected=False,
             versions=[version],
         )
 
@@ -141,7 +142,7 @@ def test_register_get_ingest_delete_and_search_contracts(client) -> None:
     evaluation = client.post("/api/v1/evaluations/run")
     assert evaluation.status_code == 200
     assert evaluation.json()["total_cases"] == 30
-    assert evaluation.json()["review_status_counts"] == {"pending_human_review": 30}
+    assert evaluation.json()["review_status_counts"] == {"human_reviewed": 30}
 
     deleted = client.delete(f"/api/v1/documents/{document_id}")
     assert deleted.status_code == 204
