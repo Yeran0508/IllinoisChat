@@ -5,6 +5,7 @@ import pytest
 from app.generation.audit import ChatAuditEvent
 from app.generation.models import ChatModelError
 from app.generation.service import GroundedChatService
+from app.retrieval.advanced import RetrievalAttempt, RetrievalTrace, TracedRetrieval
 from app.retrieval.service import RetrievalResult
 
 
@@ -158,3 +159,43 @@ def test_valid_citation_with_unsupported_claim_is_refused() -> None:
     assert result.status == "insufficient_evidence"
     assert result.refusal_reason == "unsupported_claim"
     assert audit.events[0].refusal_reason == "unsupported_claim"
+
+
+def test_iterative_insufficiency_refuses_before_answer_model() -> None:
+    class TracedRetrievalService:
+        def search_with_trace(self, **_kwargs):
+            return TracedRetrieval(
+                results=[evidence()],
+                trace=RetrievalTrace(
+                    original_query="cross-section question",
+                    subquestions=["part one", "part two"],
+                    attempts=[
+                        RetrievalAttempt(
+                            step=1,
+                            query="part one",
+                            chunk_ids=[uuid.UUID(int=1)],
+                        )
+                    ],
+                    sufficient=False,
+                    missing_subquestions=["part two"],
+                    steps_used=2,
+                    stopped_reason="step_limit",
+                ),
+            )
+
+    model = FakeModel(response="must not be called")
+    audit = FakeAudit()
+    chat = GroundedChatService(
+        retrieval=TracedRetrievalService(),
+        model=model,
+        audit=audit,
+        top_k=5,
+        minimum_score=0.35,
+    )
+
+    result = chat.ask(course_code="CS", query="cross-section question")
+
+    assert result.status == "insufficient_evidence"
+    assert result.refusal_reason == "iterative_evidence_insufficient"
+    assert result.retrieval_trace["missing_subquestions"] == ["part two"]
+    assert model.calls == 0

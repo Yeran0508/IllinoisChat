@@ -13,6 +13,11 @@ from app.generation.service import GroundedChatService
 from app.ingestion.chunker import StructureAwareChunker
 from app.ingestion.service import DocumentIngestionService
 from app.ingestion.storage import LocalDocumentStorage
+from app.retrieval.advanced import (
+    IterativeRetrievalService,
+    ModelEvidenceSufficiencyEvaluator,
+    ModelQuestionDecomposer,
+)
 from app.retrieval.embeddings import EmbeddingProvider, FastEmbedBgeProvider
 from app.retrieval.hybrid import HybridRetrievalService
 from app.retrieval.lexical import ChunkLexicalIndex, OpenSearchBM25Index
@@ -92,11 +97,24 @@ def get_retrieval_service(
     reranker: Annotated[Reranker, Depends(get_reranker)],
 ) -> RetrievalService:
     settings = get_settings()
-    return HybridRetrievalService(
+    base = HybridRetrievalService(
         vector=vector,
         lexical=lexical,
         reranker=reranker,
         candidate_k=settings.retrieval_candidate_k,
+        rrf_rank_constant=settings.rrf_rank_constant,
+    )
+    model = get_chat_model()
+    return IterativeRetrievalService(
+        base=base,
+        decomposer=ModelQuestionDecomposer(
+            model=model,
+            max_subquestions=settings.advanced_retrieval_max_subquestions,
+        ),
+        sufficiency=ModelEvidenceSufficiencyEvaluator(model=model),
+        max_steps=settings.advanced_retrieval_max_steps,
+        max_subquestions=settings.advanced_retrieval_max_subquestions,
+        per_query_k=settings.advanced_retrieval_per_query_k,
         rrf_rank_constant=settings.rrf_rank_constant,
     )
 

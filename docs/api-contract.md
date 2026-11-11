@@ -54,7 +54,7 @@ Retrieves vector and OpenSearch BM25 candidates for one course, fuses them with 
 }
 ```
 
-The response returns source IDs and metadata, normalized final score, and `retrieval_metadata` containing available component scores, ranks, RRF score, reranker logit, and model name.
+The response returns source IDs and metadata, normalized final score, and `retrieval_metadata` containing available component scores, ranks, RRF score, reranker logit, and model name. M4 responses also include `retrieval_trace`: original query, bounded subquestions, per-step search queries and chunk IDs, evidence-sufficiency result, missing subquestions, steps used, and stop reason. Decomposition/provider failures return `503` without provider details.
 
 ## `POST /api/v1/evaluations/run`
 
@@ -71,10 +71,10 @@ Checks the protected-assignment corpus first, then either returns a bounded home
 }
 ```
 
-An answered response contains `sentences`, where every item has one or more `citation_ids`. Each ID must resolve to a `citations` item backed by a chunk from `retrieved_chunk_ids`. A separate fail-closed support-validation pass checks that each complete sentence is entailed by its cited passages. Citation objects include document/version/chunk IDs, source name, page or section metadata, a bounded evidence excerpt, and retrieval score.
+An answered response contains `sentences`, where every item has one or more `citation_ids`. Each ID must resolve to a `citations` item backed by a chunk from `retrieved_chunk_ids`. A separate fail-closed support-validation pass checks that each complete sentence is entailed by its cited passages. Citation objects include document/version/chunk IDs, source name, page or section metadata, a bounded evidence excerpt, and retrieval score. The response preserves the same M4 `retrieval_trace` used to obtain that evidence.
 
 A protected match returns `status: "homework_hint"`, `safety_mode: "protected_assignment"`, the configured `hint_level` (1-3), and a bounded study hint. It does not call normal retrieval or the answer model. Ordinary protected chunks are excluded from both vector and BM25 answer retrieval.
 
-A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `model_insufficient_evidence`, `invalid_model_output`, `invalid_citation`, or `unsupported_claim`. Model-provider failures return `503` without exposing provider details.
+A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `iterative_evidence_insufficient`, `model_insufficient_evidence`, `invalid_model_output`, `invalid_citation`, or `unsupported_claim`. `iterative_evidence_insufficient` includes a trace identifying missing subquestions and why bounded retrieval stopped. Model-provider failures return `503` without exposing provider details.
 
 The server records request ID, latency, model name, outcome, retrieval score, and retrieved/cited chunk IDs. It stores SHA-256 of the normalized query instead of raw student text.

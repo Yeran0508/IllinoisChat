@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     protected_assignment_min_score: float = 0.82
     homework_hint_level: int = 1
     remove_unsupported_sentences: bool = False
+    advanced_retrieval_max_steps: int = 2
+    advanced_retrieval_max_subquestions: int = 3
+    advanced_retrieval_per_query_k: int = 5
 
     llm_base_url: str = "http://host.docker.internal:11434/v1"
     llm_api_key: SecretStr = Field(default=SecretStr(""), repr=False)

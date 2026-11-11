@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0-M3 are locally verified**. The 30-case M2 dataset and 14-case M3 safety dataset are manually reviewed, and the M3 baseline/CI regression path is recorded. The small synthetic datasets limit generalization, so measured percentages are not production claims.
+Current checkpoint: **M0-M4 are locally verified**. M4 model-quality claims remain pending real-LLM evaluation. The small synthetic datasets limit generalization, so measured percentages are not production claims.
 
 ## Problem
 
@@ -70,6 +70,9 @@ All milestones M0-M5 are required for the V1 release. Milestones are implementat
 - A protected-only vector matcher runs before answer retrieval and returns configurable level 1-3 bounded hints without calling the answer model.
 - A second fail-closed model pass checks whether every generated sentence is supported by its cited evidence.
 - Citation precision, unsupported-claim rate, and assignment-leakage metrics plus a 12-case adversarial draft are implemented.
+- Bounded question decomposition and iterative retrieval with configurable subquestion, follow-up, and step limits.
+- Explicit evidence-sufficiency decisions that fail closed before answer generation when evidence remains incomplete.
+- A structured retrieval trace linking the original question, subquestions, each retrieval attempt, chunk IDs, missing evidence, and stop reason.
 
 M2's 30 labels and M3's 14 detection/response-policy labels are manually reviewed. M3's reproducible baseline records both the failed pure-semantic policy and the adopted identity plus risk-gated semantic policy. Its perfect committed-dataset regression result must not be presented as universal assignment-protection accuracy.
 

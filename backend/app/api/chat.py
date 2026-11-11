@@ -48,6 +48,7 @@ class ChatResponse(BaseModel):
     safety_mode: str = "standard"
     hint_level: int | None = None
     protected_match_score: float | None = None
+    retrieval_trace: dict | None = None
 
 
 @router.post("", response_model=ChatResponse)

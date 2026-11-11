@@ -74,6 +74,7 @@ class ChatResult:
     safety_mode: str = "standard"
     hint_level: int | None = None
     protected_match_score: float | None = None
+    retrieval_trace: dict | None = None
 
 
 class GroundedChatService:
@@ -141,11 +142,22 @@ class GroundedChatService:
                 protected_match_score=assignment_match.score,
             )
 
-        results = self.retrieval.search(
-            course_code=course_code.strip(),
-            query=normalized_query,
-            top_k=self.top_k,
-        )
+        retrieval_trace = None
+        search_with_trace = getattr(self.retrieval, "search_with_trace", None)
+        if search_with_trace is None:
+            results = self.retrieval.search(
+                course_code=course_code.strip(),
+                query=normalized_query,
+                top_k=self.top_k,
+            )
+        else:
+            traced = search_with_trace(
+                course_code=course_code.strip(),
+                query=normalized_query,
+                top_k=self.top_k,
+            )
+            results = traced.results
+            retrieval_trace = traced.trace.as_dict()
         retrieved_ids = [result.chunk_id for result in results]
         top_score = results[0].score if results else None
 
@@ -157,6 +169,7 @@ class GroundedChatService:
                 reason="no_evidence",
                 results=results,
                 started=started,
+                retrieval_trace=retrieval_trace,
             )
         if top_score is None or top_score < self.minimum_score:
             return self._refuse(
@@ -166,6 +179,17 @@ class GroundedChatService:
                 reason="low_retrieval_score",
                 results=results,
                 started=started,
+                retrieval_trace=retrieval_trace,
+            )
+        if retrieval_trace is not None and not retrieval_trace["sufficient"]:
+            return self._refuse(
+                request_id=request_id,
+                course_code=course_code,
+                query=normalized_query,
+                reason="iterative_evidence_insufficient",
+                results=results,
+                started=started,
+                retrieval_trace=retrieval_trace,
             )
 
         try:
@@ -196,6 +220,7 @@ class GroundedChatService:
                 reason="invalid_model_output",
                 results=results,
                 started=started,
+                retrieval_trace=retrieval_trace,
             )
 
         if not parsed.sufficient:
@@ -206,6 +231,7 @@ class GroundedChatService:
                 reason="model_insufficient_evidence",
                 results=results,
                 started=started,
+                retrieval_trace=retrieval_trace,
             )
         if not parsed.sentences:
             return self._refuse(
@@ -215,6 +241,7 @@ class GroundedChatService:
                 reason="invalid_model_output",
                 results=results,
                 started=started,
+                retrieval_trace=retrieval_trace,
             )
 
         source_by_id = {index: result for index, result in enumerate(results, start=1)}
@@ -230,6 +257,7 @@ class GroundedChatService:
                     reason="invalid_citation",
                     results=results,
                     started=started,
+                    retrieval_trace=retrieval_trace,
                 )
             used_ids.update(citation_ids)
             sentences.append(AnswerSentence(text=sentence.text.strip(), citation_ids=citation_ids))
@@ -250,6 +278,7 @@ class GroundedChatService:
                     reason="unsupported_claim",
                     results=results,
                     started=started,
+                    retrieval_trace=retrieval_trace,
                 )
             sentences = [
                 sentence
@@ -264,6 +293,7 @@ class GroundedChatService:
                     reason="unsupported_claim",
                     results=results,
                     started=started,
+                    retrieval_trace=retrieval_trace,
                 )
             used_ids = {
                 citation_id for sentence in sentences for citation_id in sentence.citation_ids
@@ -296,6 +326,7 @@ class GroundedChatService:
             retrieved_chunk_ids=retrieved_ids,
             model_name=self.model.model_name,
             latency_ms=latency_ms,
+            retrieval_trace=retrieval_trace,
         )
 
     def _refuse(
@@ -307,6 +338,7 @@ class GroundedChatService:
         reason: str,
         results: list[RetrievalResult],
         started: float,
+        retrieval_trace: dict | None = None,
     ) -> ChatResult:
         latency_ms = self._elapsed_ms(started)
         self._record(
@@ -330,6 +362,7 @@ class GroundedChatService:
             retrieved_chunk_ids=[result.chunk_id for result in results],
             model_name=self.model.model_name,
             latency_ms=latency_ms,
+            retrieval_trace=retrieval_trace,
         )
 
     def _record(
