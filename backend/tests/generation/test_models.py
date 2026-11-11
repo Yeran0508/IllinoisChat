@@ -21,6 +21,7 @@ def test_openai_compatible_model_sends_grounded_json_request() -> None:
         api_key="secret",
         model_name="test-model",
         timeout_seconds=1,
+        reasoning_effort="none",
         client=client,
     )
 
@@ -29,6 +30,7 @@ def test_openai_compatible_model_sends_grounded_json_request() -> None:
     assert result == '{"sufficient": false}'
     assert captured["model"] == "test-model"
     assert captured["temperature"] == 0
+    assert captured["reasoning_effort"] == "none"
     assert captured["response_format"] == {"type": "json_object"}
     assert captured["messages"][0] == {"role": "system", "content": "rules"}
 

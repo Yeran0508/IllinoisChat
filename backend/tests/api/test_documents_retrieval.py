@@ -4,7 +4,12 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
-from app.dependencies import get_chat_service, get_document_service, get_retrieval_service
+from app.dependencies import (
+    get_cache_metrics,
+    get_chat_service,
+    get_document_service,
+    get_retrieval_service,
+)
 from app.generation.models import ChatModelError
 from app.generation.service import AnswerSentence, ChatResult, Citation
 from app.ingestion.service import DocumentNotFoundError, RegistrationResult
@@ -100,11 +105,23 @@ class FakeChatService:
         )
 
 
+class FakeCacheMetrics:
+    def snapshot(self) -> dict:
+        return {
+            "hits": 8,
+            "misses": 2,
+            "hit_rate": 0.8,
+            "stale_answer_rate": 0.0,
+            "latency_ms": {"mean": 3.0, "p50": 2.0, "p95": 5.0},
+        }
+
+
 @pytest.fixture
 def client():
     app.dependency_overrides[get_document_service] = lambda: FakeDocumentService()
     app.dependency_overrides[get_retrieval_service] = lambda: FakeRetrievalService()
     app.dependency_overrides[get_chat_service] = lambda: FakeChatService()
+    app.dependency_overrides[get_cache_metrics] = lambda: FakeCacheMetrics()
     with TestClient(app) as value:
         yield value
     app.dependency_overrides.clear()
@@ -143,6 +160,10 @@ def test_register_get_ingest_delete_and_search_contracts(client) -> None:
     assert evaluation.status_code == 200
     assert evaluation.json()["total_cases"] == 30
     assert evaluation.json()["review_status_counts"] == {"human_reviewed": 30}
+
+    metrics = client.get("/api/v1/metrics")
+    assert metrics.status_code == 200
+    assert metrics.json()["semantic_cache"]["hit_rate"] == 0.8
 
     deleted = client.delete(f"/api/v1/documents/{document_id}")
     assert deleted.status_code == 204

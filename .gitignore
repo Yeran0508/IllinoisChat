@@ -7,6 +7,11 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Environment and secrets
 .env
@@ -31,6 +36,9 @@ docs/experiments/results/*
 !docs/experiments/results/m2-baseline.json
 !docs/experiments/results/m3-safety-baseline.json
 !docs/experiments/results/m3-safety-hybrid-policy.json
+!docs/experiments/results/m5-cache-baseline.json
+!docs/experiments/results/m5-cache-optimized.json
+!docs/experiments/results/v1-real-llm-smoke.json
 
 # Local learning notes
 IllinoisChat学习笔记.txt

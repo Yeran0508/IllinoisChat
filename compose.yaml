@@ -1,6 +1,16 @@
 name: illinois-chat
 
 services:
+  frontend:
+    build:
+      context: .
+      target: frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-4173}:8080"
+
   api:
     build:
       context: .
@@ -21,6 +31,10 @@ services:
       OPENSEARCH_TIMEOUT_SECONDS: ${OPENSEARCH_TIMEOUT_SECONDS:-10}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      SEMANTIC_CACHE_ENABLED: ${SEMANTIC_CACHE_ENABLED:-true}
+      SEMANTIC_CACHE_TTL_SECONDS: ${SEMANTIC_CACHE_TTL_SECONDS:-3600}
+      SEMANTIC_CACHE_SIMILARITY_THRESHOLD: ${SEMANTIC_CACHE_SIMILARITY_THRESHOLD:-0.94}
+      SEMANTIC_CACHE_MAX_CANDIDATES: ${SEMANTIC_CACHE_MAX_CANDIDATES:-100}
       CHUNK_MAX_CHARACTERS: ${CHUNK_MAX_CHARACTERS:-1200}
       CHUNK_OVERLAP_CHARACTERS: ${CHUNK_OVERLAP_CHARACTERS:-150}
       DOCUMENT_STORAGE_PATH: /app/data/uploads
@@ -38,11 +52,14 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+      LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-none}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
     depends_on:
       migrate:
         condition: service_completed_successfully
       opensearch:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8000}:8000"
@@ -97,12 +114,17 @@ services:
       EMBEDDING_CACHE_PATH: /tmp/illinois-chat-test-models
       RUN_INTEGRATION_TESTS: "1"
       RUN_OPENSEARCH_TESTS: "1"
+      RUN_REDIS_TESTS: "1"
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       migrate:
         condition: service_completed_successfully
       opensearch:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     profiles: ["test"]
 
@@ -141,7 +163,6 @@ services:
 
   redis:
     image: redis:7.4.3-alpine
-    profiles: ["full"]
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "${REDIS_PORT:-6379}:6379"

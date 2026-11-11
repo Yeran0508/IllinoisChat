@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
+from app.caching.semantic import SqlAlchemyCorpusFingerprintProvider
 from app.db.models import ChatRequestLog, Chunk, Course, DocumentVersion
 from app.db.session import SessionLocal
 from app.evaluation.safety import load_safety_dataset
@@ -171,6 +172,34 @@ def test_ingestion_failure_is_persisted(ingestion_service, db_session) -> None:
     assert version.status == "failed"
     assert "unclosed fenced code block" in (version.error_message or "")
     assert registered.version_id in ingestion_service.lexical_index.deleted_versions
+
+
+def test_corpus_fingerprint_changes_after_new_completed_version(
+    ingestion_service, db_session
+) -> None:
+    first = ingestion_service.register(
+        course_code="CS-CACHE",
+        course_name="Cache Course",
+        title="Notes",
+        source_name="notes.md",
+        media_type="text/markdown",
+        content=b"# Version one\n\nInitial material.",
+    )
+    ingestion_service.ingest(first.version_id)
+    fingerprints = SqlAlchemyCorpusFingerprintProvider(db_session)
+    before = fingerprints.fingerprint("CS-CACHE")
+
+    second = ingestion_service.register(
+        course_code="CS-CACHE",
+        course_name="Cache Course",
+        title="Notes",
+        source_name="notes.md",
+        media_type="text/markdown",
+        content=b"# Version two\n\nUpdated material.",
+    )
+    ingestion_service.ingest(second.version_id)
+
+    assert fingerprints.fingerprint("CS-CACHE") != before
 
 
 def test_protected_assignment_is_isolated_from_normal_retrieval(

@@ -21,9 +21,11 @@ class OpenAICompatibleChatModel:
         api_key: str,
         model_name: str,
         timeout_seconds: float,
+        reasoning_effort: str = "none",
         client=None,
     ) -> None:
         self.model_name = model_name
+        self.reasoning_effort = reasoning_effort
         self._client = client or httpx.Client(
             base_url=base_url.rstrip("/"),
             timeout=timeout_seconds,
@@ -37,6 +39,7 @@ class OpenAICompatibleChatModel:
                 json={
                     "model": self.model_name,
                     "temperature": 0,
+                    "reasoning_effort": self.reasoning_effort,
                     "response_format": {"type": "json_object"},
                     "messages": [
                         {"role": "system", "content": system_prompt},

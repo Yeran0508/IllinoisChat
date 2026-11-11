@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     log_level: str = "INFO"
+    cors_origins: str = "http://localhost:5173,http://localhost:4173"
 
     postgres_db: str = "illinoischat"
     postgres_user: str = "illinoischat"
@@ -34,6 +35,10 @@ class Settings(BaseSettings):
     opensearch_timeout_seconds: float = 10.0
     redis_host: str = "localhost"
     redis_port: int = 6379
+    semantic_cache_enabled: bool = True
+    semantic_cache_ttl_seconds: int = 3600
+    semantic_cache_similarity_threshold: float = 0.94
+    semantic_cache_max_candidates: int = 100
 
     chunk_max_characters: int = 1200
     chunk_overlap_characters: int = 150
@@ -59,6 +64,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://host.docker.internal:11434/v1"
     llm_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
     llm_model: str = "qwen3:4b"
+    llm_reasoning_effort: str = "none"
     llm_timeout_seconds: float = 60.0
 
     @property

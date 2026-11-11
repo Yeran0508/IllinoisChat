@@ -4,7 +4,7 @@ Illinois Chat is a campus-oriented retrieval-augmented generation (RAG) question
 
 > Project status: planning and V1 implementation. The capabilities below are V1 acceptance targets, not completed claims.
 
-Current checkpoint: **M0-M4 are locally verified**. M4 model-quality claims remain pending real-LLM evaluation. The small synthetic datasets limit generalization, so measured percentages are not production claims.
+Current checkpoint: **M0-M5 and the interview UI are locally verified**. The remaining release gates are committing/pushing the final changes, remote CI on that commit, default-branch review/merge, and held-out real-LLM measurements before making model-quality or end-to-end cost claims. M5 latency results remain controlled cache experiments rather than production measurements.
 
 ## Problem
 
@@ -73,8 +73,16 @@ All milestones M0-M5 are required for the V1 release. Milestones are implementat
 - Bounded question decomposition and iterative retrieval with configurable subquestion, follow-up, and step limits.
 - Explicit evidence-sufficiency decisions that fail closed before answer generation when evidence remains incomplete.
 - A structured retrieval trace linking the original question, subquestions, each retrieval attempt, chunk IDs, missing evidence, and stop reason.
+- Redis semantic answer caching with BGE query similarity, TTL, bounded candidate scans, and exact compatibility checks for course corpus, retrieval, safety, and model configuration.
+- Corpus fingerprints derived from completed immutable document versions and protection status, so a corpus change rejects old entries before they can be served.
+- Cache hit/miss, stale-rejection, stale-answer, and latency metrics exposed at `GET /api/v1/metrics`.
+- A reproducible cold/warm/concurrent cache experiment with a preserved negative baseline and optimized result; the experiment uses a simulated 50 ms upstream and does not claim real LLM cost or production latency.
+- A responsive React 19 + TypeScript interview client for grounded answers, citations, refusal and homework-hint states, bounded traces, cache metrics, and course-document ingestion.
+- A reproducible demo script and architecture document covering data flow, trust boundaries, failure modes, consistency trade-offs, and evidence limitations.
 
 M2's 30 labels and M3's 14 detection/response-policy labels are manually reviewed. M3's reproducible baseline records both the failed pure-semantic policy and the adopted identity plus risk-gated semantic policy. Its perfect committed-dataset regression result must not be presented as universal assignment-protection accuracy.
+
+The M5 controlled workload recorded 120 cache hits and two misses across 122 requests, one stale-entry rejection after a corpus fingerprint change, and zero stale answers served. After adding a bounded in-process exact-query embedding LRU, sequential warm P95 was 2.85 ms and 100-request/10-worker warm P95 was 51.19 ms. These numbers apply only to the documented environment and one pre-warmed query; see [`docs/experiments/2026-11-10-m5-semantic-cache.md`](docs/experiments/2026-11-10-m5-semantic-cache.md).
 
 ## Evaluation evidence policy
 
@@ -108,6 +116,9 @@ The model and embedding providers will be accessed behind interfaces so they can
 - [`requirements.md`](requirements.md): product requirements, acceptance criteria, non-functional requirements, and phased scope.
 - [`docs/api-contract.md`](docs/api-contract.md): contracts for endpoints already introduced in code.
 - [`docs/experiments/README.md`](docs/experiments/README.md): required template and evidence rules for reproducible experiments.
+- [`docs/architecture.md`](docs/architecture.md): V1 data flow, trust boundaries, and production trade-offs.
+- [`docs/demo-script.md`](docs/demo-script.md): the 8-10 minute interview walkthrough and recovery plan.
+- [`docs/experiments/2026-11-10-v1-real-llm-smoke.md`](docs/experiments/2026-11-10-v1-real-llm-smoke.md): the real-Ollama smoke-test result and current model-runtime limitation.
 
 ## Local development
 
@@ -117,6 +128,12 @@ Requirements: Docker Desktop with Docker Compose.
 cp .env.example .env
 docker compose up --build -d api postgres
 curl http://localhost:8000/api/v1/health
+```
+
+Start the complete interview stack and open `http://localhost:4173`:
+
+```bash
+docker compose up --build -d frontend
 ```
 
 For local generation, start an OpenAI-compatible provider and configure `LLM_BASE_URL` and `LLM_MODEL`. The defaults target Ollama on the Docker host with `qwen3:4b`; the model is not downloaded automatically.
@@ -130,10 +147,26 @@ docker compose --profile test run --rm --no-deps test
 docker compose config --quiet
 ```
 
-OpenSearch is now required by the M2 hybrid retrieval path and starts with the API. Redis remains opt-in until M5:
+Run the frontend checks independently with Node 24:
 
 ```bash
-docker compose --profile full up -d redis
+cd frontend
+npm ci
+npm run typecheck
+npm test -- --run
+npm run build
+```
+
+After the API and its configured OpenAI-compatible model are ready, run the repeatable command-line demo:
+
+```bash
+./scripts/demo.sh
+```
+
+OpenSearch and Redis are required by the completed hybrid-retrieval and semantic-cache paths and start with the API. To start infrastructure without the API:
+
+```bash
+docker compose up -d postgres opensearch redis
 ```
 
 ## License

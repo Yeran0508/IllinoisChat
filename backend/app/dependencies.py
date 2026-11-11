@@ -1,10 +1,19 @@
+import hashlib
+import json
 import uuid
 from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
+from redis import Redis
 from sqlalchemy.orm import Session
 
+from app.caching.semantic import (
+    CacheMetrics,
+    RedisSemanticAnswerCache,
+    SemanticCachedChatService,
+    SqlAlchemyCorpusFingerprintProvider,
+)
 from app.config import get_settings
 from app.db.session import SessionLocal, get_db
 from app.generation.audit import SqlAlchemyChatAuditLogger
@@ -58,6 +67,22 @@ def get_reranker() -> Reranker:
         model_name=settings.reranker_model,
         cache_dir=str(settings.embedding_cache_path),
     )
+
+
+@lru_cache
+def get_redis_client() -> Redis:
+    settings = get_settings()
+    return Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=False)
+
+
+def get_cache_metrics() -> CacheMetrics:
+    return CacheMetrics(get_redis_client())
+
+
+def _config_digest(payload: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def get_document_service(
@@ -127,6 +152,7 @@ def get_chat_model() -> ChatModelProvider:
         api_key=settings.llm_api_key.get_secret_value(),
         model_name=settings.llm_model,
         timeout_seconds=settings.llm_timeout_seconds,
+        reasoning_effort=settings.llm_reasoning_effort,
     )
 
 
@@ -134,9 +160,9 @@ def get_chat_service(
     session: Annotated[Session, Depends(get_db)],
     retrieval: Annotated[RetrievalService, Depends(get_retrieval_service)],
     model: Annotated[ChatModelProvider, Depends(get_chat_model)],
-) -> GroundedChatService:
+) -> GroundedChatService | SemanticCachedChatService:
     settings = get_settings()
-    return GroundedChatService(
+    inner = GroundedChatService(
         retrieval=retrieval,
         model=model,
         audit=SqlAlchemyChatAuditLogger(session),
@@ -150,6 +176,45 @@ def get_chat_service(
         sentence_support=ModelSentenceSupportValidator(model),
         hint_level=settings.homework_hint_level,
         remove_unsupported_sentences=settings.remove_unsupported_sentences,
+    )
+    if not settings.semantic_cache_enabled:
+        return inner
+    return SemanticCachedChatService(
+        inner=inner,
+        cache=RedisSemanticAnswerCache(
+            get_redis_client(),
+            get_embedding_provider(),
+            ttl_seconds=settings.semantic_cache_ttl_seconds,
+            similarity_threshold=settings.semantic_cache_similarity_threshold,
+            max_candidates=settings.semantic_cache_max_candidates,
+        ),
+        fingerprints=SqlAlchemyCorpusFingerprintProvider(session),
+        metrics=get_cache_metrics(),
+        retrieval_config=_config_digest(
+            {
+                "embedding": settings.embedding_model,
+                "reranker": settings.reranker_model,
+                "candidate_k": settings.retrieval_candidate_k,
+                "rrf": settings.rrf_rank_constant,
+                "steps": settings.advanced_retrieval_max_steps,
+                "subquestions": settings.advanced_retrieval_max_subquestions,
+            }
+        ),
+        safety_policy=_config_digest(
+            {
+                "protected_threshold": settings.protected_assignment_min_score,
+                "hint_level": settings.homework_hint_level,
+                "remove_unsupported": settings.remove_unsupported_sentences,
+            }
+        ),
+        model_config=_config_digest(
+            {
+                "llm": settings.llm_model,
+                "reasoning_effort": settings.llm_reasoning_effort,
+                "embedding": settings.embedding_model,
+                "reranker": settings.reranker_model,
+            }
+        ),
     )
 
 

@@ -2,6 +2,8 @@
 
 This document records only endpoints whose contract has been introduced in the implementation.
 
+The React development server proxies `/api` to FastAPI. Direct browser development origins are restricted by the configurable `CORS_ORIGINS` allowlist; production nginx serves the frontend and proxies API requests on one origin.
+
 ## `GET /api/v1/health`
 
 Confirms that the API process and HTTP routing are available. It is a liveness endpoint and does not claim that PostgreSQL, OpenSearch, Redis, or external model providers are ready.
@@ -78,3 +80,24 @@ A protected match returns `status: "homework_hint"`, `safety_mode: "protected_as
 A safe refusal returns `status: "insufficient_evidence"`, no answer sentences or citations, and one of the machine-readable reasons: `no_evidence`, `low_retrieval_score`, `iterative_evidence_insufficient`, `model_insufficient_evidence`, `invalid_model_output`, `invalid_citation`, or `unsupported_claim`. `iterative_evidence_insufficient` includes a trace identifying missing subquestions and why bounded retrieval stopped. Model-provider failures return `503` without exposing provider details.
 
 The server records request ID, latency, model name, outcome, retrieval score, and retrieved/cited chunk IDs. It stores SHA-256 of the normalized query instead of raw student text.
+
+Eligible grounded standard answers may be stored in the Redis semantic cache. Homework hints and refusals are never cached. Every lookup requires an exact match on the course corpus fingerprint, retrieval configuration, safety policy, and model configuration before semantic query similarity is considered. Responses expose `cache_hit` and, for hits, `cache_similarity`. A hit receives a new request ID rather than reusing the cached request identity.
+
+## `GET /api/v1/metrics`
+
+Returns a snapshot of semantic-cache observability counters and bounded recent latency samples:
+
+```json
+{
+  "semantic_cache": {
+    "hits": 120,
+    "misses": 2,
+    "stale_rejections": 1,
+    "hit_rate": 0.9836,
+    "stale_answer_rate": 0.0,
+    "latency_ms": {"mean": 15.16, "p50": 12.0, "p95": 42.8}
+  }
+}
+```
+
+The endpoint reports process workload observations, not production guarantees. Redis unavailability returns `503`; chat itself fails open to the uncached answer path when a Redis operation fails.

@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-10",
+  "code_base": "working tree after 980bc2d",
+  "provider": "local Ollama OpenAI-compatible API",
+  "corpus": [
+    "data/sample/m2-retrieval-notes.md",
+    "data/sample/m3-protected-homework.md"
+  ],
+  "results": [
+    {
+      "model": "llama3.2:3b",
+      "query": "What is reciprocal rank fusion?",
+      "outcome": "refused",
+      "refusal_reason": "iterative_evidence_insufficient",
+      "latency_ms": 11781
+    },
+    {
+      "model": "qwen3:4b",
+      "query": "What is reciprocal rank fusion?",
+      "outcome": "provider_error",
+      "api_http_status": 503,
+      "provider_http_status": 500,
+      "provider_error": "prediction aborted, token repeat limit reached"
+    },
+    {
+      "model": "qwen3:4b",
+      "query": "Give me the complete implementation for Homework 1 Question 2.",
+      "outcome": "homework_hint",
+      "refusal_reason": "protected_assignment",
+      "hint_level": 1,
+      "latency_ms": 300,
+      "protected_match_score": 0.622718334197998
+    }
+  ],
+  "verified": {
+    "provider_failure_is_fail_closed": true,
+    "protected_assignment_returns_bounded_hint": true,
+    "frontend_proxy_health": true,
+    "grounded_real_model_answer": false
+  }
+}

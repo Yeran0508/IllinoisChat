@@ -183,6 +183,7 @@ The exact schemas will be finalized during M0.
 | `POST` | `/api/v1/retrieval/search` | Inspect retrieved chunks for a query | M1 |
 | `POST` | `/api/v1/chat` | Produce a grounded answer or refusal | M1 |
 | `POST` | `/api/v1/evaluations/run` | Run a versioned offline evaluation | M2 |
+| `GET` | `/api/v1/metrics` | Read semantic-cache hit, stale-answer, and latency metrics | M5 |
 
 ## 7. V1 completion definition
 

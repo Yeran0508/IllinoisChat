@@ -21,3 +21,16 @@ def test_openapi_document_is_available() -> None:
 
     assert response.status_code == 200
     assert "/api/v1/health" in response.json()["paths"]
+
+
+def test_local_frontend_origin_receives_cors_headers() -> None:
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"

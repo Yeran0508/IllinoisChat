@@ -49,6 +49,8 @@ class ChatResponse(BaseModel):
     hint_level: int | None = None
     protected_match_score: float | None = None
     retrieval_trace: dict | None = None
+    cache_hit: bool = False
+    cache_similarity: float | None = None
 
 
 @router.post("", response_model=ChatResponse)

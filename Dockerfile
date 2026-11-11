@@ -33,3 +33,17 @@ RUN python -m pip install --no-cache-dir ".[dev]"
 USER app
 
 CMD ["pytest"]
+
+FROM node:24.11.0-alpine AS frontend-build
+
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build
+
+FROM nginx:1.29.3-alpine AS frontend
+
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=frontend-build /frontend/dist /usr/share/nginx/html
+EXPOSE 8080

@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-11-11T03:22:21.998180+00:00",
+  "python": "3.12.10 (main, May 21 2025, 23:34:56) [GCC 12.2.0]",
+  "platform": "Linux-6.10.14-linuxkit-x86_64-with-glibc2.36",
+  "redis": "7.4.3-alpine",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "similarity_threshold": 0.94,
+  "ttl_seconds": 3600,
+  "max_candidates": 100,
+  "simulated_upstream_delay_ms": 50,
+  "requests": 122,
+  "concurrent_requests": 100,
+  "cold": {
+    "latency_ms": 82.5638109818101,
+    "cache_hit": false
+  },
+  "warm": {
+    "latency_ms": {
+      "mean": 11.155854951357469,
+      "p50": 11.153340514283627,
+      "p95": 13.671148137655113
+    },
+    "requests": 20
+  },
+  "concurrent_warm": {
+    "latency_ms": {
+      "mean": 100.61253868334461,
+      "p50": 84.1872965102084,
+      "p95": 223.6801482387818
+    },
+    "wall_ms": 1063.1107059889473,
+    "requests": 100,
+    "workers": 10
+  },
+  "after_corpus_change": {
+    "latency_ms": 78.01084202947095,
+    "cache_hit": false
+  },
+  "metrics": {
+    "misses": 2,
+    "hits": 120,
+    "stale_rejections": 1,
+    "hit_rate": 0.9836065573770492,
+    "stale_answer_rate": 0.0,
+    "latency_ms": {
+      "mean": 72.28688524590164,
+      "p50": 63.0,
+      "p95": 157.79999999999995
+    }
+  },
+  "upstream_calls": 2,
+  "upstream_calls_avoided": 120,
+  "limitations": [
+    "The upstream delay is simulated and is not a real LLM latency measurement.",
+    "The workload uses one pre-warmed query and does not measure cache stampede on cold keys.",
+    "The corpus fingerprint is controlled directly to isolate invalidation behavior.",
+    "Dollar cost is not reported; avoided upstream calls are the cost proxy."
+  ]
+}
